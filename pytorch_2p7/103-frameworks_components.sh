@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "800-local_config.sh"
+source "100-local_config.sh"
 
 conda activate $CONDA_ENV_INSTALL_DIR/$CONDA_ENV_NAME
 

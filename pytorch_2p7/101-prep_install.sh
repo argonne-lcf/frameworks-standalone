@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "800-local_config.sh"
+source "100-local_config.sh"
 
 #Prevent error on RO FS
 #OSError: [Errno 30] Read-only file system: '/input/frameworks/23.275.1/2023.2-yaml_files/condaenv.uxpgh7__.requirements.txt'

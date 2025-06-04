@@ -2,5 +2,5 @@ channels:
   - https://software.repos.intel.com/python/conda/linux-64
   - conda-forge
 dependencies:
-  - python=3.11
+  - python=3.11.11
   - pip

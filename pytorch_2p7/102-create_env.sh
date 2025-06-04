@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "800-local_config.sh"
+source "100-local_config.sh"
 
 # create conda env
 #conda create -p $AURORA_PE_FRAMEWORKS_INSTALL_DIR/$AURORA_PE_FRAMEWORKS_ENV_NAME --clone ${AURORA_BASE_ENV}
@@ -14,7 +14,7 @@ echo ENVFULLPATH:$ENVFULLPATH
 # Will install Python IDP
 export CONDA_PKGS_DIRS=${ENVPREFIX}/../.conda/pkgs
 export PIP_CACHE_DIR=${ENVPREFIX}/../.pip
-conda create python=3.10.14 --prefix ${ENVPREFIX} --override-channels \
+conda create python=3.11.11 --prefix ${ENVPREFIX} --override-channels \
            --channel https://software.repos.intel.com/python/conda/linux-64 \
            --channel conda-forge \
            --insecure \
@@ -36,7 +36,7 @@ conda remove python --prefix ${ENVPREFIX} \
         --yes
 
 # Reinstall Python to get Intel IDP
-conda install python=3.10.14 --prefix ${ENVPREFIX} \
+conda install python=3.11.11 --prefix ${ENVPREFIX} \
         --override-channels \
         --channel https://software.repos.intel.com/python/conda/linux-64 \
         --channel conda-forge \
@@ -88,7 +88,7 @@ do
         --yes
     pip uninstall $pkg -y
 done
-set -e
+#set -e
 
 
 pip install numpy==1.26.4

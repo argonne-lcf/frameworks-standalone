@@ -11,26 +11,29 @@ set -o pipefail
 
 # The directory where this repository is cloned
 # AURORA_PE_FRAMEWORKS_SRC_DIR equivalent
-REPO_SRC_DIR=/lus/flare/projects/Aurora_deployment/datascience/software
+REPO_SRC_DIR=/lus/flare/projects/Aurora_deployment/datascience/software/frameworks-standalone/pytorch_2p7
+
 # This is where we want the conda environment to be
 # AURORA_PE_FRAMEWORKS_INSTALL_DIR equivalent
-CONDA_ENV_INSTALL_DIR=/lus/flare/projects/Aurora_deployment/datascience/software/envs/conda_envs/conda_pt2.7_oneapi2025.1.3
+CONDA_ENV_INSTALL_DIR=/lus/flare/projects/Aurora_deployment/datascience/software/envs/conda_envs/
 
 # location of inputs
-[[ -z "${REPO_SRC_DIR:-}" ]] && COMPONENT_SRC_DIR=/frameworks-standalone/pytorch_2p7
-[[ -z "${CONDA_ENV_INSTALL_DIR:-}" ]] && CONDA_ENV_INSTALL_DIR=/lus/flare/projects/Aurora_deployment/datascience/software/envs/conda_envs/conda_pt2.7_oneapi2025.1.3
+[[ -z "${REPO_SRC_DIR:-}" ]] && REPO_SRC_DIR=/frameworks-standalone/pytorch_2p7
+[[ -z "${CONDA_ENV_INSTALL_DIR:-}" ]] && CONDA_ENV_INSTALL_DIR=/lus/flare/projects/Aurora_deployment/datascience/software/envs/conda_envs/
 
 #BUILD_ROOT=/home/rramer/dl_fw_conda_env_bkm/2024.1
-YAML_FILES_LOC="${COMPONENT_SRC_DIR}/yaml_files"
-PATCHES_LOC="${COMPONENT_SRC_DIR}/patches"
-SRC_WHEEL_LOC="${COMPONENT_SRC_DIR}/wheels"
+YAML_FILES_LOC="${REPO_SRC_DIR}/yaml_files"
+PATCHES_LOC="${REPO_SRC_DIR}/patches"
+SRC_WHEEL_LOC="${REPO_SRC_DIR}/wheels"
 
 TMP_WORK="/tmp/frameworks_install-$(id -un)"
 WHEEL_LOC="$TMP_WORK/wheel_files"
 
+#echo "$YAML_FILES_LOC" 
+
 # location of conda environment
 #AURORA_PE_FRAMEWORKS_ENV_NAME="${AURORA_PE_FRAMEWORKS_ENV_NAME:-aurora_nre_models_frameworks-2025.0.1}"
-CONDA_ENV_NAME="${AURORA_PE_FRAMEWORKS_ENV_NAME:-pt2.7_oneapi2025.1.3}"
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-pt2.7_oneapi2025.1.3}"
 CONDA_ENV_MANIFEST="${CONDA_ENV_INSTALL_DIR}/manifests"
 
 # We definitely do not want this.  See config/intel for examples of how to set proxies
