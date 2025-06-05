@@ -5,6 +5,7 @@ source "100-local_config.sh"
 # create conda env
 #conda create -p $AURORA_PE_FRAMEWORKS_INSTALL_DIR/$AURORA_PE_FRAMEWORKS_ENV_NAME --clone ${AURORA_BASE_ENV}
 ENVPREFIX=$CONDA_ENV_INSTALL_DIR/$CONDA_ENV_NAME
+rm -rf ${ENVPREFIX} 
 mkdir -p ${ENVPREFIX}
 # FULL PATH
 export ENVFULLPATH=$(realpath ${ENVPREFIX})

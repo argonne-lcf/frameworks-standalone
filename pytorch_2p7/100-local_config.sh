@@ -52,7 +52,7 @@ module use /soft/compilers/oneapi/2025.1.3/modulefiles
 module use /soft/compilers/oneapi/nope/modulefiles
 module add mpich/nope/develop-git.6037a7a
 module add oneapi/public/2025.1.3
-module load cmake
+#module load cmake/3.25.3
 
 module -t list
 
