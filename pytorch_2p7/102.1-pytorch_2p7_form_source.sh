@@ -2,7 +2,7 @@
 
 source "100-local_config.sh"
 
-TMP_WORK=/lus/flare/projects/Aurora_deployment/datascience/software/envs/wheel_factory
+TMP_WORK=/lus/flare/projects/Aurora_deployment/datascience/software/envs/wheel_factory/pytorch_2p7
 conda activate /lus/flare/projects/Aurora_deployment/datascience/software/envs/conda_envs/conda_python_3.11
 
 ## FIX ME!!!

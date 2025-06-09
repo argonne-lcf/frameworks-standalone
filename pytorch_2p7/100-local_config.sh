@@ -51,10 +51,15 @@ module unload oneapi
 module use /soft/compilers/oneapi/2025.1.3/modulefiles
 module use /soft/compilers/oneapi/nope/modulefiles
 module add mpich/nope/develop-git.6037a7a
+export A21_SDK_PTIROOT_OVERRIDE=/opt/aurora/24.347.0/oneapi/pti/latest ## 0.11.0
 module add oneapi/public/2025.1.3
+echo "PTI-GPU root after oneapi/2025.1.3: $PTIROOT"
+#export PTIROOT=/opt/aurora/24.347.0/oneapi/pti/latest
 #module load cmake/3.25.3
 
 module -t list
+
+echo "PTI-GPU Root: $PTIROOT"
 
 # activate base conda environment
 # shellcheck disable=SC1090
