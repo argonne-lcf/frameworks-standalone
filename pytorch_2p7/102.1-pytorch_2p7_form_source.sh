@@ -17,6 +17,8 @@ cd $TMP_WORK
 cd pytorch
 #git checkout release/2.7
 #git submodule sync && git submodule update --init --recursive
+#
+export LD_LIBRARY_PATH="/usr/lib64:$LD_LIBRARY_PATH"
 
 export CMAKE_PREFIX_PATH="${CONDA_PREFIX:-'$(dirname $(which conda))/../'}:${CMAKE_PREFIX_PATH}"
 export _GLIBCXX_USE_CXX11_ABI=1 
@@ -30,8 +32,8 @@ echo "CC = $CC"
 export CC_FOR_BUILD=$(which gcc)
 export CXX_FOR_BUILD=$(which g++)
 
-#export CMAKE_CXX_FLAGS="-Wno-error -Wno-terminate -Wno-deprecated-attributes -Wno-unused-but-set-variable"
-#export CMAKE_C_FLAGS="-Wno-error"
+export CMAKE_CXX_FLAGS="-Wno-error -Wno-terminate -Wno-deprecated-attributes -Wno-unused-but-set-variable"
+export CMAKE_C_FLAGS="-Wno-error"
 
 export REL_WITH_DEB_INFO=1
 export USE_CUDA=0
