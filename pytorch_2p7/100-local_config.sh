@@ -47,10 +47,11 @@ export https_proxy=http://proxy.alcf.anl.gov:3128
 # modulefile which sets location of IDPROOT
 
 module restore
-module unload oneapi
+module unload mpich oneapi
 module use /soft/compilers/oneapi/2025.1.3/modulefiles
 module use /soft/compilers/oneapi/nope/modulefiles
 module add mpich/nope/develop-git.6037a7a
+module add gcc/13.3.0
 export A21_SDK_PTIROOT_OVERRIDE=/opt/aurora/24.347.0/oneapi/pti/latest ## 0.11.0
 module add oneapi/public/2025.1.3
 echo "PTI-GPU root after oneapi/2025.1.3: $PTIROOT"

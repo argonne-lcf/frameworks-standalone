@@ -2,8 +2,6 @@
 
 source "100-local_config.sh"
 
-module load gcc/13.3.0
-
 # Suggestion from Sean. Don't want to use "cmake" from conda
 module load cmake
 unset CMAKE_ROOT
@@ -61,7 +59,6 @@ export CMAKE_C_FLAGS="-Wno-error"
 
 export REL_WITH_DEB_INFO=1
 export BUILD_WITH_CPU=ON
-export BUILD_WITH_XPU=OFF
 
 # now the conda env doesn't have MKL in case we want to use different version of MKL from module
 # use MKLROOT from module environment
