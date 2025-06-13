@@ -6,9 +6,9 @@ conda activate $CONDA_ENV_INSTALL_DIR/$CONDA_ENV_NAME
 
 mkdir -p  $CONDA_ENV_MANIFEST
 
-conda list > $CONDA_ENV_MANIFEST/pytorch_2p7_conda_env.list 2>&1
+conda list > $CONDA_ENV_MANIFEST/${CONDA_ENV_NAME}_conda_env.list 2>&1
 
-pip list > $CONDA_ENV_MANIFEST/pytorch_2p7_pip.list 2>&1
+pip list > $CONDA_ENV_MANIFEST/${CONDA_ENV_NAME}_pip.list 2>&1
 
 conda deactivate
 

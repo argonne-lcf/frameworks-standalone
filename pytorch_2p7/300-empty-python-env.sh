@@ -3,7 +3,7 @@
 
 set -e
 
-export CONDA_ENV_NAME=conda_python_3.11
+export CONDA_ENV_NAME=pt2p7_ipex2p7
 
 export SOURCE_DIR=$(realpath "$(dirname "$0")")
 [[ "${DEBUG:-}" == *frameworks* ]] && echo "SOURCE_DIR=${SOURCE_DIR}"
