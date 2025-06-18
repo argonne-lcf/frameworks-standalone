@@ -1,5 +1,8 @@
 #!/bin/bash -x
-
+# Time Stamp
+tstamp() {
+     date +"%Y-%m-%d-%H%M%S"
+}
 source "100-local_config.sh"
 
 TMP_WORK=/lus/flare/projects/Aurora_deployment/datascience/software/envs/wheel_factory/pytorch_2p7
@@ -17,14 +20,16 @@ unset CMAKE_ROOT
 
 #mkdir -p $TMP_WORK
 cd $TMP_WORK
+WHEEL_TAG=pt2p7_py3p10p14_pti0p10p3
 
+mkdir -p ${WHEEL_TAG}
 # build the pytorch 2.7 wheel
 #git clone https://github.com/pytorch/pytorch.git
 cd pytorch
 #git checkout release/2.7
 #git submodule sync && git submodule update --init --recursive
 #
-export LD_LIBRARY_PATH="/usr/lib64:$LD_LIBRARY_PATH"
+#export LD_LIBRARY_PATH="/usr/lib64:$LD_LIBRARY_PATH"
 
 #export CMAKE_PREFIX_PATH="${CONDA_PREFIX:-'$(dirname $(which conda))/../'}:${CMAKE_PREFIX_PATH}"
 export _GLIBCXX_USE_CXX11_ABI=1 
@@ -87,12 +92,13 @@ export TORCH_XPU_ARCH_LIST='pvc'
 export INTEL_MKL_DIR=$MKLROOT
 
 #pip install --no-cache-dir -r requirements.txt
-pip install -r requirements.txt
+pip install --no-cache-dir -r requirements.txt
 
 
 python setup.py clean
 make triton
-MAX_JOBS=32 python setup.py bdist_wheel --dist-dir ${TMP_WORK}
+MAX_JOBS=32 python setup.py bdist_wheel --dist-dir ${TMP_WORK}/${WHEEL_TAG} 2>&1 | tee ${TMP_WORK}/${WHEEL_TAG}/"torch-build-whl-$(tstamp).log"
+
 
 echo ""
 echo "Completed build pytorch wheel"

@@ -45,14 +45,24 @@ export https_proxy=http://proxy.alcf.anl.gov:3128
 # git config --global http.proxy http://proxy.alcf.anl.gov:3128
 
 # modulefile which sets location of IDPROOT
+# activate base conda environment
+# shellcheck disable=SC1090
+#source "${IDPROOT}/bin/activate"
+#
+# In our current setup which is the early testing phase of 25.070.0/frameworks
+# We get a conda the following way
+source /opt/aurora/24.347.0/spack/unified/0.9.2/install/linux-sles15-x86_64/gcc-13.3.0/miniforge3-24.3.0-0-gfganax/bin/activate
+
+echo "Activated the base conda environment"
+echo "The Base conda is coming from $(which conda)"
 
 module restore
 module unload mpich oneapi
 module use /soft/compilers/oneapi/2025.1.3/modulefiles
 module use /soft/compilers/oneapi/nope/modulefiles
 module add mpich/nope/develop-git.6037a7a
-module add gcc/13.3.0
-export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e #0.10.3
+## PTI-GPU==0.10.3
+export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e 
 module add oneapi/public/2025.1.3
 echo "PTI-GPU root after oneapi/2025.1.3: $PTIROOT"
 #export PTIROOT=/opt/aurora/24.347.0/oneapi/pti/latest
@@ -61,19 +71,6 @@ echo "PTI-GPU root after oneapi/2025.1.3: $PTIROOT"
 module -t list
 
 echo "PTI-GPU Root: $PTIROOT"
-
-# activate base conda environment
-# shellcheck disable=SC1090
-#source "${IDPROOT}/bin/activate"
-#
-# In our current setup which is the early testing phase of 25.070.0/frameworks
-# We get a conda the following way
-
-module load miniforge3/24.3.0-0
-source /opt/aurora/24.347.0/spack/unified/0.9.2/install/linux-sles15-x86_64/gcc-13.3.0/miniforge3-24.3.0-0-gfganax/bin/activate
-
-echo "Activated the base conda environment"
-echo "The Base conda is coming from $(which conda)"
 
 #Subdue WARNING: Running pip as the 'root' user can result in broken permissions
 export PIP_ROOT_USER_ACTION=ignore
