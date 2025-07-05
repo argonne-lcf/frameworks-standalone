@@ -1,11 +1,32 @@
 #!/bin/bash
-# This script is used to install PyTorch 2.7, Intel Extension for PyTorch, and Torch CCL on the Aurora system.
-# It creates a new conda environment, installs the necessary packages, and activates the environment.
+##################################
+# This script is used to install:
+# - PyTorch 2.7
+# - Intel Extension for PyTorch
+# - Torch CCL
+# on the Aurora system.
 #
-# Usage: bash install_pt2p7.sh <envdir>
+# It creates a new conda environment,
+# installs the necessary packages,
+# and activates the environment.
 #
-# Parameters:
-# - envdir: Directory where the conda environment will be created.
+# - Usage: `./install_pt2p7.sh <envdir>`
+#
+# - Parameters:
+#   - `envdir`: Directory where the conda 
+#     environment will be created.
+#
+# - Example:
+#
+#   ```bash
+#   git clone https://github.com/argonne-lcf/frameworks-standalone
+#   cd frameworks-standalone
+#   # *Be sure to use a path _you_ have write access to!
+#   envdir="/flare//miniforge/$(date +%Y%m%d-%H%M%S)-test"
+#   bash ALCF/Aurora/torch/install-pt2p7.sh "${envdir}"
+#   ```
+#
+##################################
 
 if [[ "${DEBUG:-0}" == "1" ]]; then
     set -x
@@ -13,26 +34,26 @@ if [[ "${DEBUG:-0}" == "1" ]]; then
 fi
 
 # Create a new conda environment at the specified path.
-# Usage: create_new_conda_env <envpath>
+# Usage: create_new_conda_env <envdir>
 # Parameters:
-# - envpath: The path where the conda environment will be created.
+# - envdir: The path where the conda environment will be created.
 create_new_conda_env() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <envpath>"
+        echo "Usage: $0 <envdir>"
         return 1
     fi
-    envpath="$(realpath "$1")"
-    echo "Creating conda environment in: ${envpath}"
+    envdir="$(realpath "$1")"
+    echo "Creating conda environment in: ${envdir}"
     # Check if the environment already exists
-    if [[ -d "${envpath}" ]] && [[ -n "$(ls -A "${envpath}")" ]]; then
-        echo "Error: Environment directory ${envpath} already exists."
+    if [[ -d "${envdir}" ]] && [[ -n "$(ls -A "${envdir}")" ]]; then
+        echo "Error: Environment directory ${envdir} already exists."
         return 1
     fi
-    mkdir -p "${envpath}"
-    export CONDA_ENV="${envpath}"
-    export CONDA_PKGS_DIRS="${envpath}/.conda/pkgs"
-    export PIP_CACHE_DIR="${envpath}/.pip"
-    conda create -y -p "${envpath}" --override-channels \
+    mkdir -p "${envdir}"
+    export CONDA_ENV="${envdir}"
+    export CONDA_PKGS_DIRS="${envdir}/.conda/pkgs"
+    export PIP_CACHE_DIR="${envdir}/.pip"
+    conda create -y -p "${envdir}" --override-channels \
         --channel https://software.repos.intel.com/python/conda/linux-64 \
         --channel conda-forge \
         --insecure \
@@ -68,11 +89,11 @@ setup_modules() {
 setup_env() {
     source /opt/aurora/24.347.0/spack/unified/0.9.2/install/linux-sles15-x86_64/gcc-13.3.0/miniforge3-24.3.0-0-gfganax/bin/activate
     create_new_conda_env "$@"
-    if [[ -z "${envpath}" ]]; then
+    if [[ -z "${envdir}" ]]; then
         echo "Error: Environment path is not set. Please provide a valid environment directory and name."
         return 1
     fi
-    conda activate "${envpath}"
+    conda activate "${envdir}"
 }
 
 # Install:
@@ -82,26 +103,48 @@ setup_env() {
 # from pre-built wheels.
 # Usage: install_whls_and_deps
 install_whls_and_deps() {
-    PYTORCH_WHEEL_LOC=/lus/flare/projects/Aurora_deployment/wheel_warehouse/pt2p7_py3p10p14_pti0p10p3
-    IPEX_WHEEL_LOC=/lus/flare/projects/Aurora_deployment/wheel_warehouse/ipex_2p7_oneapi_2025p1p3_pti_0p10p3_python3p10p14_panos
-    TORCH_CCL_WHEEL_LOC=/lus/flare/projects/Aurora_deployment/wheel_warehouse/torch_ccl_2p7_oneapi_2025p1p3_pti_0p10p3_python3p10p14
-    WHEEL_FACTORY=$(dirname ${PYTORCH_WHEEL_LOC})
-    PT_WHL="$(ls "$(dirname "${PYTORCH_WHEEL_LOC}")"/*pt2p7*/*.whl)"
-    IPEX_WHL="$(ls "$(dirname "${IPEX_WHEEL_LOC}")"/*ipex*/*.whl)"
-    TORCH_CCL_WHL="$(ls "$(dirname "${TORCH_CCL_WHEEL_LOC}")"/*ccl*/*.whl)"
+    whl_factory="/lus/flare/projects/Aurora_deployment/wheel_warehouse"
 
-    requirements_file="$(find "${WHEEL_FACTORY}" -name 'ipex_pytorch_2p7_combined_requirements.txt')"
+    # PyTorch 2.7 wheel directory and file
+    pt_dir="${whl_factory}/pt2p7_py3p10p14_pti0p10p3"
+    pt_whl="$(ls "$(dirname "${pt_dir}")"/*pt2p7*/*.whl)"
+
+    # Intel Extension for PyTorch wheel directory and file
+    ipex_dir="${whl_factory}/ipex_2p7_oneapi_2025p1p3_pti_0p10p3_python3p10p14_panos"
+    ipex_whl="$(ls "$(dirname "${ipex_dir}")"/*ipex*/*.whl)"
+
+    #  OneCCL Bindings for Pytorchwheel directory and file
+    ccl_dir="${whl_factory}/torch_ccl_2p7_oneapi_2025p1p3_pti_0p10p3_python3p10p14"
+    ccl_whl="$(ls "$(dirname "${ccl_dir}")"/*ccl*/*.whl)"
+
+    # Install mpi4py
+    CC=mpicc CXX=mpicxx python3 -m pip install "git+https://github.com/mpi4py/mpi4py"
+
+    # Install requirements
+    requirements_file="$(find "${whl_factory}" -name 'ipex_pytorch_2p7_combined_requirements.txt')"
     if [[ -z "${requirements_file}" ]]; then
-        echo "Error: No requirements file found in ${WHEEL_FACTORY}."
+        echo "Error: No requirements file found in ${whl_factory}."
         return 1
     else
         python3 -m pip install -r "${requirements_file}"
     fi
-    python3 -m pip uninstall -y numpy
+
+    # python3 -m pip uninstall -y numpy
+    # python3 -m pip install numpy==1.26.4
     python3 -m pip install numpy==1.26.4
-    python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${PT_WHL}"
-    python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${IPEX_WHL}"
-    python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${TORCH_CCL_WHL}"
+    
+    # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${pt_whl}"
+    # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${ipex_whl}"
+    # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${ccl_whl}"
+    for whl in "${pt_whl}" "${ipex_whl}" "${ccl_whl}"; do
+        if [[ ! -f "${whl}" ]]; then
+            echo "Error: Wheel file ${whl} does not exist."
+            return 1
+        else
+            echo "Found wheel file: ${whl}"
+            python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${whl}"
+        fi
+    done
 }
 
 # Test the installation of PyTorch, Intel Extension for PyTorch, and Torch CCL.
@@ -115,9 +158,7 @@ test_install() {
 # Usage: run_ezpz_test
 run_ezpz_test() {
     # shellcheck disable=SC1090
-    source <(curl -L https://bit.ly/ezpz-utils)
-    NO_COLOR=1 ezpz_setup_env || return 1
-    CC=mpicc CXX=mpicxx python3 -m pip install "git+https://github.com/mpi4py/mpi4py"
+    NO_COLOR=1 source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_env
     python3 -m pip install "git+https://github.com/saforem2/ezpz" --require-virtualenv
     ezpz-test
 }
