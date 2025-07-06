@@ -1,4 +1,54 @@
 #!/bin/bash --login
+############################################
+# ```markdown
+# This script is used to build and install:
+# - PyTorch 2.8
+# - Intel Extension for PyTorch
+# - Torch CCL
+# on the Aurora system.
+#
+# It creates a new conda environment,
+# installs the necessary packages,
+# and activates the environment.
+#
+# - Usage: `./install_pt2p8.sh <envdir>`
+#
+# - Parameters:
+#   - `envdir`: Directory where the conda 
+#     environment will be created.
+#
+# - Example:
+#
+#   ```bash
+#   git clone https://github.com/argonne-lcf/frameworks-standalone
+#   cd frameworks-standalone
+#   # *Be sure to use a path _you_ have write access to!
+#   envdir="/flare//miniforge/$(date +%Y%m%d-%H%M%S)-test"
+#   bash ALCF/Aurora/torch/install-pt2p7.sh "${envdir}"
+#   ```
+#
+# ## IPEX Build Notes
+#
+#  ```bash
+# # ========================[IPEX BUILD LOG]========================
+# # [❌ TAKE 1]
+# # [2025-07-05 @ 23:20] hung (?) (@ 92% > ~ 2 hr)
+# #    [ 92%] Linking CXX shared library libxetla_gemm.so]
+# # ----------------------------------------------------------------
+# # [❌ TAKE 2]
+# # [2025-07-06 @ 10:30:24] hung (?) (@ 97% )
+# #     [ 97%] Built target intel-ext-pt-gpu-op-TripleOps
+# # [2025-07-06 @ 11:01] ...[waiting]...
+# # [2025-07-06 @ 13:00] job ended :(
+# # ---------------------------------------------------------------
+# # [✅ TAKE 3]
+# # [2025-07-06 @ 18:00] Successfully built IPEX 
+# # took: 1h:05m:36s
+# #==================================================================
+# ```
+#
+# ```
+##################################
 
 
 # Exit immediately if a command exits with a non-zero status.
@@ -37,6 +87,10 @@ setup_modules() {
     unset CMAKE_ROOT
     export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e
     module add oneapi/public/2025.1.3
+    #======================================================
+    # [2025-07-06][NOTE][sam]: Not exported elsewhere (??)
+    export ZE_FLAT_DEVICE_HIERARCHY=FLAT
+    #======================================================
 }
 
 
@@ -52,7 +106,7 @@ setup_modules() {
 #   # ...[clipped]...
 #   took: 0h:07m:27s
 #   ```
-activate_or_create_mm_env() {
+activate_or_create_micromamba_env() {
     if ! command -v micromamba &>/dev/null; then
         echo "micromamba not found. Installing micromamba..."
         install_micromamba || {
@@ -123,7 +177,7 @@ activate_or_create_conda_env() {
         python_version="3.12"
     elif [[ "$#" -eq 0 ]]; then
         # no arguments, use default envdir and python version
-        envdir="${HOME}/miniforge/$(date +%Y%m%d-%H%M%S)-test"
+        envdir="${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)"
         python_version="3.12"
     else
         echo "Usage: $0 [<envdir>] [<python_version>]"
@@ -168,47 +222,6 @@ activate_or_create_conda_env() {
     fi
 }
 
-
-
-# clone_pytorch_in_build_dir() {
-#     # if [[ "$#" -ne 1 ]]; then
-#     #     echo "Usage: $0 <build_dir>"
-#     #     return 1
-#     # fi
-#     # build_dir="$(realpath "$1")"
-#     if [[ -z "${BUILD_DIR:-}" ]]; then
-#         echo "Error: build_dir is not set. Please set the build_dir variable before calling this function."
-#         return 1
-#     fi
-#
-#     cd "${BUILD_DIR}" || {
-#         echo "Failed to change directory to ${BUILD_DIR}. Please ensure it exists."
-#         return 1
-#     }
-#     echo "Checking if pytorch/pytorch is already cloned in $BUILD_DIR"
-#     # Check if the pytorch directory already exists
-#     if [ -d "pytorch" ]; then
-#         echo "pytorch/pytorch already exists in $BUILD_DIR. Skipping clone."
-#         return 0
-#     else
-#         echo "pytorch/pytorch does not exist in $BUILD_DIR. Cloning..."
-#         # If it doesn't exist, clone the repository
-#         git 
-#
-#     fi
-#     if [ ! -d "pytorch" ]; then
-#         echo "Cloning pytorch/pytorch into $BUILD_DIR"
-#         git clone https://github.com/pytorch/pytorch || {
-#             echo "Failed to clone pytorch/pytorch."
-#             return 1
-#         }
-#     fi
-#     cd "${BUILD_DIR}/pytorch" || return 1
-#
-# }
-#
-#
-
 build_bdist_wheel_from_github_repo() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <wheel_name>"
@@ -238,7 +251,16 @@ build_bdist_wheel_from_github_repo() {
     cd - || return 1
 }
 
-
+# Function to prepare a repository in the specified build directory.
+#
+# - Usage: prepare_repo_in_build_dir `<build_dir>` `<repo_url>`
+#   Where <build_dir> is the directory where the repository will be cloned.
+#
+# - Example:
+#
+#   ```bash
+#   ; prepare_repo_in_build_dir build-2025-07-05-203137 "https://github.com/pytorch/pytorch"
+#   ```
 prepare_repo_in_build_dir() {
     # build_dir, repo_url
     if [[ "$#" -ne 2 ]]; then
@@ -246,7 +268,6 @@ prepare_repo_in_build_dir() {
         echo "Where <build_dir> is the directory where the repository will be cloned."
         return 1
     fi
-    # local build_dir repo_url repo_name
     local bd; bd="$(realpath "$1")"
     local src; src="$2"
     local name; name="${src##*/}" # Extract the repository name from the URL
@@ -400,13 +421,13 @@ build_torch_ccl() {
         return 1
     fi
     build_dir="$(realpath "$1")"
-    ccl_url="https://github.com/intel/oneccl-bindings-for-pytorch"
+    ccl_url="https://github.com/intel/torch-ccl"
     prepare_repo_in_build_dir "${build_dir}" "${ccl_url}" || {
         echo "Failed to prepare torch-ccl repository."
         return 1
     }
 
-    cd "${build_dir}/oneccl-bindings-for-pytorch" || return 1
+    cd "${build_dir}/torch-ccl" || return 1
 
     echo "Checking out specific commit c27ded5..."
     git checkout c27ded5
@@ -416,29 +437,13 @@ build_torch_ccl() {
 
     echo "Building torch-ccl..."
     ONECCL_BINDINGS_FOR_PYTORCH_BACKEND=xpu INTELONEAPIROOT="${ONEAPI_ROOT}" USE_SYSTEM_ONECCL=ON COMPUTE_BACKEND=dpcpp python3 setup.py bdist_wheel | tee "torch-ccl-build-whl-$(tstamp).log"
+
     echo "Installing torch-ccl wheel..."
     uv pip install --link-mode=copy dist/*.whl
-    cd .. || return 1
+    cd -1 || return 1
 }
 
 # Function to build mpi4py
-# build_mpi4py() {
-#     echo "--- Building mpi4py ---"
-#     if [ ! -d "$MPI4PY_DIR" ]; then
-#         echo "Cloning mpi4py/mpi4py..."
-#         git clone https://github.com/mpi4py/mpi4py
-#     else
-#         echo "mpi4py directory already exists. Skipping clone."
-#     fi
-#     cd "$MPI4PY_DIR" || return 1
-#     echo "Building mpi4py..."
-#     CC=mpicc CXX=mpicxx python3 setup.py build |& tee build.log
-#     echo "Installing mpi4py..."
-#     CC=mpicc CXX=mpicxx python3 setup.py install |& tee install.log
-#     cd .. || return 1
-# }
-#
-
 build_mpi4py() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -466,7 +471,7 @@ build_mpi4py() {
 build_h5py() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where mpi4py will be built."
+        echo "Where <build_dir> is the directory where h5py will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
@@ -523,20 +528,9 @@ build_torchtune() {
 
     echo "Installing TorchTune in editable mode..."
     cd "${build_dir}/torchtune" || return 1
-    # uv pip install --link-mode=copy -e "." --require-virtualenv --verbose
-
-    # NOTE: Replace <hf-token> with your actual Hugging Face token.
-    # This step requires user interaction for the token.
-    echo "Attempting to download Meta-Llama-3.1-8B-Instruct model (requires Hugging Face token)."
-    echo "Please be prepared to provide your Hugging Face token when prompted, or manually run the 'tune download' command."
-    echo "If you wish to skip this, comment out or remove the following 'tune download' line."
-    read -p "Enter your Hugging Face token (leave blank to skip model download): " HF_TOKEN
-    if [ -n "$HF_TOKEN" ]; then
-        mkdir -p ~/torchtune_anl2/out_dir
-        tune download meta-llama/Meta-Llama-3.1-8B-Instruct --output-dir ~/torchtune_anl2/out_dir --ignore-patterns "original/consolidated.00.pth" --hf-token "$HF_TOKEN"
-    else
-        echo "Hugging Face token not provided. Skipping model download."
-    fi
+    USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 -m build --installer=uv | tee "torchtune-build-$(tstamp).log"
+    echo "Installing TorchTune wheel..."
+    uv pip install --link-mode=copy dist/*.whl
     cd -1 || return 1
 }
 
@@ -547,82 +541,148 @@ verify_installation() {
     python3 -c 'import torch; print(torch.__file__); print(*torch.__config__.show().split("\n"), sep="\n") ; print(f"{torch.__version__=}"); print(f"{torch.xpu.is_available()=}"); print(f"{torch.xpu.device_count()=}") ; import torch.distributed; print(f"{torch.distributed.is_xccl_available()=}"); import torch; import intel_extension_for_pytorch as ipex; print(f"{torch.__version__=}"); print(f"{ipex.__version__=}"); import oneccl_bindings_for_pytorch as oneccl_bpt; print(f"{oneccl_bpt.__version__=}") ; [print(f"[{i}]: {torch.xpu.get_device_properties(i)}") for i in range(torch.xpu.device_count())]'
 }
 
-# --- Main Script Execution ---
 
+# This function runs the simple `ezpz-test` to verify distributed training functionality.`
+# Usage: run_ezpz_test
+run_ezpz_test() {
+    # shellcheck disable=SC1090
+    NO_COLOR=1 source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_env
+    python3 -m pip install "git+https://github.com/saforem2/ezpz" --require-virtualenv
+    ezpz-test
+}
+
+# Main function to orchestrate the build and installation process.
+#
+# - Usage: `main <conda_env_dir> [<build_dir>]`
+#
+# - Parameters:
+#   - `<conda_env_dir>`: Directory where the conda environment will be created.
+#   - `[<build_dir>]`: Directory where our libraries will be built.
+#
+# - Example(s):
+#   - Specifying only the conda environment directory:
+#
+#     ```bash
+#     main "/path/to/conda/env"
+#     ```
+#
+#   - Specifying both directories:
+#
+#     ```bash
+#     bdir="/path/to/build"
+#     edir="/path/to/conda/env"
+#     main "$edir" "$bdir"
+#     ```
 main() {
-    if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where our libraries will be built."
+    # if [[ "$#" -ne 2 ]]; then
+    #     echo "Usage: $0 <build_dir> <conda_env_dir>"
+    #     echo "Where <build_dir> is the directory where our libraries will be built."
+    #     echo "And <conda_env_dir> is the directory where the conda environment will be created."
+    #     return 1
+    # fi
+    if [[ "$#" -eq 2 ]]; then
+        conda_env_dir="$(realpath "$1")"
+        build_dir="$(realpath "$2")"
+    elif [[ "$#" -eq 1 ]]; then
+        conda_env_dir="$(realpath "$1")"
+        build_dir="$(pwd)/build-$(tstamp)"
+        mkdir -p "${build_dir}"
+    else
+        echo "Usage: $0 <conda_env_dir> [<build_dir>]"
+        echo "Where <conda_env_dir> is the directory where the conda environment will be created."
+        echo "And [<build_dir>] is the directory where our libraries will be built."
+        echo "If no build directory is specified, a default one will be created in the current working directory."
         return 1
     fi
-    build_dir="$(realpath "$1")"
-    cd "${build_dir}" || {
-        echo "Failed to change directory to ${build_dir}. Please ensure it exists."
+
+    # Ensure uv is installed
+    if ! command -v uv &>/dev/null; then
+        echo "uv not found. Installing uv..."
+        install_uv || {
+            echo "Failed to install uv. Please ensure you have curl installed."
+            return 1
+        }
+    fi
+    export UV_LINK_MODE=copy
+
+    # Ensure micromamba is installed
+    if ! command -v micromamba &>/dev/null; then
+        echo "micromamba not found. Installing micromamba..."
+        install_micromamba || {
+            echo "Failed to install micromamba. Please ensure you have curl installed."
+            return 1
+        }
+    fi
+
+    # Took < 10 min
+    echo "Creating (or activating) conda environment at: ${conda_env_dir}"
+    activate_or_create_micromamba_env "${conda_env_dir}" "3.12" || {
+        echo "Failed to create or activate conda environment at ${conda_env_dir}."
         return 1
     }
-    # --- Global Variables ---
-    # PYTORCH_DIR="${build_dir}/pytorch"
-    # IPEX_DIR="${build_dir}/intel-extension-for-pytorch"
-    # TORCH_CCL_DIR="${build_dir}/torch-ccl"
-    # MPI4PY_DIR="${build_dir}/mpi4py"
-    # H5PY_DIR="${build_dir}/h5py"
-    # TORCH_AO_DIR="${build_dir}/ao"
-    # TORCHTUNE_DIR="${build_dir}/torchtune"
 
-    CONDA_ENV_DIR="${HOME:-/tmp/}/miniforge/$(date +%Y%m%d-%H%M%S)-test"
-    # ~ 10 mins
-    activate_or_create_conda_env "${CONDA_ENV_DIR}" || {  # ~ 10 mins
-        echo "Failed to activate or create conda environment. Please check the output for details."
-        return 1
-    }
-
-    # ~ 2 hrs
+    # Took ~ 2 hrs
     build_pytorch "${build_dir}" || {  # ~ 2 hours
         echo "Failed to build PyTorch. Please check the output for details."
         return 1
     }
 
-    # < 1 min
+    # Took < 1 min
     install_optional_pytorch_libs || {  # < 1 min (9s for my last run)
         echo "Failed to install optional PyTorch libraries. Please check the output for details."
         return 1
     }
 
-    # [BUG] hung (?) @ 2025-07-05 @ ~ 23:20
-    # [ 92%] Linking CXX shared library libxetla_gemm.so]
-    # will wait and see...
+    # Took ~ 1 hr
+    # (and 3 tries, see \[IPEX Build Notes above\])
     build_ipex "${build_dir}" || {
         echo "Failed to build Intel Extension for PyTorch. Please check the output for details."
         return 1
     }
 
+    # Took 0h:03m:09s
     build_torch_ccl "${build_dir}" || {
         echo "Failed to build torch-ccl. Please check the output for details."
         return 1
     }
 
+    # Took 0h:01m:43s
     build_mpi4py "${build_dir}" || {
         echo "Failed to build mpi4py. Please check the output for details."
         return 1
     }
 
+    # [BROKEN AS OF 2025-07-06]
+    # (`module load hdf5` not supported ??)
     build_h5py "${build_dir}" || {
         echo "Failed to build h5py. Please check the output for details."
         return 1
     }
 
+    # Took 0h:01m:08s
     build_torch_ao "${build_dir}" || {
         echo "Failed to build torch/ao. Please check the output for details."
         return 1
     }
+
+    # Took 0h:00m:42s
     build_torchtune "${build_dir}" || {
         echo "Failed to build TorchTune. Please check the output for details."
         return 1
     }
-    verify_installation "${build_dir}"
+
+    verify_installation || {
+        echo "Installation verification failed. Please check the output for details."
+        return 1
+    }
+
+    run_ezpz_test || {
+        echo "ezpz-test failed. Please check the output for details."
+        return 1
+    }
 
     echo "All build and installation steps completed successfully!"
 }
 
 # Call the main function
-# main
+main "$@"
