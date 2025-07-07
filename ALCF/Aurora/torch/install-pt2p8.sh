@@ -241,6 +241,25 @@ prepare_repo_in_build_dir() {
     cd - || return 1
 }
 
+check_if_already_built() {
+    # Check if the wheel file already exists in the build directory
+    if [[ "$#" -ne 1 ]]; then
+        echo "Usage: $0 libdir"
+        return 1
+    fi
+
+    local ldir; ldir="$(realpath "$1")"
+    echo "Checking for existing wheels in ${ldir}/dist..."
+
+    if [[ -d "${ldir}/dist" ]] && [[ -n "$(ls -A "${ldir}/dist")" ]]; then
+        echo "Found existing wheels in ${ldir}/dist:"
+        ls "${ldir}/dist"/*.whl
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function to build PyTorch from source in the specified build directory.
 # Usage: build_pytorch <build_dir>
 # Where <build_dir> is the directory where PyTorch will be built.
@@ -260,12 +279,21 @@ build_pytorch() {
         echo "Where <build_dir> is the directory where PyTorch will be built."
         return 1
     fi
+    # if python3 -c 'import torch' &>/dev/null; then
+    #     echo "PyTorch is already installed. Continuing with installation!."
+    #     return 0
+    # fi
     build_dir="$(realpath "$1")"
     pt_url="https://github.com/pytorch/pytorch"
     prepare_repo_in_build_dir "${build_dir}" "${pt_url}" || {
         echo "Failed to prepare PyTorch repository."
         return 1
     }
+
+    if check_if_already_built "${build_dir}/pytorch"; then
+        echo "PyTorch wheel already exists. Skipping build."
+        return 0
+    fi
 
     echo "Navigating into ${build_dir}/pytorch/"
     cd "${build_dir}/pytorch" || return 1
@@ -341,6 +369,12 @@ build_ipex() {
         echo "Failed to prepare Intel Extension for PyTorch repository."
         return 1
     }
+    # Check if the wheel file already exists in the build directory
+    if check_if_already_built "${build_dir}/intel-extension-for-pytorch"; then
+        echo "Intel Extension for PyTorch wheel already exists. Skipping build."
+        return 0
+    fi
+
     cd "${build_dir}/intel-extension-for-pytorch" || return 1
 
     echo "Checking out xpu-main branch..."
@@ -375,6 +409,12 @@ build_torch_ccl() {
         return 1
     }
 
+    # Check if the wheel file already exists in the build directory
+    if check_if_already_built "${build_dir}/torch-ccl"; then
+        echo "torch-ccl wheel already exists. Skipping build."
+        return 0
+    fi
+
     cd "${build_dir}/torch-ccl" || return 1
 
     echo "Checking out specific commit c27ded5..."
@@ -404,6 +444,11 @@ build_mpi4py() {
         echo "Failed to prepare mpi4py repository."
         return 1
     }
+    # Check if the wheel file already exists in the build directory
+    if check_if_already_built "${build_dir}/mpi4py"; then
+        echo "mpi4py wheel already exists. Skipping build."
+        return 0
+    fi
     cd "${build_dir}/mpi4py" || return 1
     echo "Building mpi4py..."
     CC=mpicc CXX=mpicxx python3 setup.py bdist_wheel | tee "mpi4py-build-whl-$(tstamp).log"
@@ -428,6 +473,12 @@ build_h5py() {
         echo "Failed to prepare h5py repository."
         return 1
     }
+
+    # Check if the wheel file already exists in the build directory
+    if check_if_already_built "${build_dir}/h5py"; then
+        echo "h5py wheel already exists. Skipping build."
+        return 0
+    fi
 
     echo "Installing h5py..."
     module load hdf5
@@ -455,6 +506,11 @@ build_torch_ao() {
         echo "Failed to prepare torch/ao repository."
         return 1
     }
+    # Check if the wheel file already exists in the build directory
+    if check_if_already_built "${build_dir}/ao"; then
+        echo "torch/ao wheel already exists. Skipping build."
+        return 0
+    fi
 
     echo "Building torch/ao..."
     cd "${build_dir}/ao" || return 1
@@ -477,6 +533,11 @@ build_torchtune() {
         echo "Failed to prepare TorchTune repository."
         return 1
     }
+    # Check if the wheel file already exists in the build directory
+    if check_if_already_built "${build_dir}/torchtune"; then
+        echo "TorchTune wheel already exists. Skipping build."
+        return 0
+    fi
 
     echo "Installing TorchTune in editable mode..."
     cd "${build_dir}/torchtune" || return 1
