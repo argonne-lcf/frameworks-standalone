@@ -238,11 +238,7 @@ prepare_repo_in_build_dir() {
     }
     git submodule sync
     git submodule update --init --recursive
-    cd -1 || {
-        echo "Failed to return to previous directory."
-        return 1
-    }
-    return 0
+    cd - || return 1
 }
 
 # Function to build PyTorch from source in the specified build directory.
@@ -321,7 +317,7 @@ build_pytorch() {
     python3 setup.py bdist_wheel | tee "torch-build-whl-$(tstamp).log"
     echo "Installing PyTorch wheel..."
     uv pip install --link-mode=copy dist/*.whl
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to install optional PyTorch libraries
@@ -362,7 +358,7 @@ build_ipex() {
     MAX_JOBS=48 CC=$(which gcc) CXX=$(which g++) INTELONEAPIROOT="${ONEAPI_ROOT}" python3 setup.py bdist_wheel | tee "ipex-build-whl-$(tstamp).log"
     echo "Installing Intel Extension for PyTorch wheel..."
     uv pip install --link-mode=copy dist/*.whl
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to build torch-ccl
@@ -392,7 +388,7 @@ build_torch_ccl() {
 
     echo "Installing torch-ccl wheel..."
     uv pip install --link-mode=copy dist/*.whl
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to build mpi4py
@@ -416,7 +412,7 @@ build_mpi4py() {
     echo "Showing mpi4py configuration (for verification):"
     python3 -c 'import mpi4py; print(mpi4py.get_config())'
     echo "mpi4py installed successfully."
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to build h5py
@@ -439,7 +435,7 @@ build_h5py() {
     CC=mpicc CXX=mpicxx HDF5_MPI="ON" HDF5_DIR="${HDF5_ROOT}" python3 setup.py bdist_wheel | tee "h5py-build-whl-$(tstamp).log"
     echo "Showing h5cc configuration (for verification):"
     h5cc -showconfig
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to build torch / ao
@@ -461,7 +457,7 @@ build_torch_ao() {
     USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 setup.py bdist_wheel | tee "torchao-build-whl-$(tstamp).log"
     echo "Installing torch/ao wheel..."
     uv pip install --link-mode=copy dist/*.whl
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to build TorchTune and download model
@@ -483,7 +479,7 @@ build_torchtune() {
     USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 -m build --installer=uv | tee "torchtune-build-$(tstamp).log"
     echo "Installing TorchTune wheel..."
     uv pip install --link-mode=copy dist/*.whl
-    cd -1 || return 1
+    cd - || return 1
 }
 
 # Function to verify installation
