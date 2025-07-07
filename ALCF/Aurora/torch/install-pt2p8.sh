@@ -244,22 +244,19 @@ prepare_repo_in_build_dir() {
 check_if_already_built() {
     # Check if the wheel file already exists in the build directory
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
+        echo "Usage: $0 libdir"
         return 1
     fi
-    local bdir; bdir="$(realpath "$1")"
-    if [[ -d "${bdir}/dist" ]]; then
 
-        # whls=$(ls "${bdir}/dist"/*.whl 2>/dev/null)
-        # if [[ -n "${whls}" ]]; then
-        if compgen -G "${bdir}/dist/*.whl" > /dev/null; then
-            echo "Found existing wheels in ${bdir}/dist:"
-            ls "${bdir}/dist"/*.whl
-            echo "Skipping build. If you want to rebuild, please delete the existing wheels."
-            return 0
-        else
-            echo "No existing wheels found in ${bdir}/dist. Proceeding with build."
-        fi
+    local ldir; ldir="$(realpath "$1")"
+    echo "Checking for existing wheels in ${ldir}/dist..."
+
+    if [[ -d "${ldir}/dist" ]] && [[ -n "$(ls -A "${ldir}/dist")" ]]; then
+        echo "Found existing wheels in ${ldir}/dist:"
+        ls "${ldir}/dist"/*.whl
+        return 0
+    else
+        return 1
     fi
 }
 
