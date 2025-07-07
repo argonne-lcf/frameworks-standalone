@@ -249,26 +249,18 @@ check_if_already_built() {
     fi
     local bdir; bdir="$(realpath "$1")"
     if [[ -d "${bdir}/dist" ]]; then
-        whls=$(ls "${bdir}/dist"/*.whl 2>/dev/null)
-        if [[ -n "${whls}" ]]; then
+
+        # whls=$(ls "${bdir}/dist"/*.whl 2>/dev/null)
+        # if [[ -n "${whls}" ]]; then
+        if compgen -G "${bdir}/dist/*.whl" > /dev/null; then
             echo "Found existing wheels in ${bdir}/dist:"
-            for whl in ${whls}; do
-                echo "  - ${whl}"
-            done
+            ls "${bdir}/dist"/*.whl
             echo "Skipping build. If you want to rebuild, please delete the existing wheels."
             return 0
         else
             echo "No existing wheels found in ${bdir}/dist. Proceeding with build."
         fi
     fi
-    # if [[ -n "${whl}" ]]; then
-    #     echo "Found existing wheel: ${whl}"
-    #     echo "Skipping build. If you want to rebuild, please delete the existing wheel."
-    #     return 0
-    # else
-    #     echo "No existing wheel found in ${bdir}. Proceeding with build."
-    #     return 1
-    # fi
 }
 
 # Function to build PyTorch from source in the specified build directory.
