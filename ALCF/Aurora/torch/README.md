@@ -3,7 +3,7 @@
 ## 📝 Summary
 
 Tested and confirmed that each of the _individual_ build steps from here in
-[ALCF/Aurora/torch/install-pt2p8 @ main](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/ALCF/Aurora/torch/install-pt2p8.sh#L576-L685) 
+[ALCF/Aurora/torch/install-pt2p8 @ main](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/ALCF/Aurora/torch/install-pt2p8.sh#L576-L685)
 are functional.
 
 ### 👣 Running Step-by-Step for Verification
@@ -109,6 +109,32 @@ export "ZE_FLAT_DEVICE_HIERARCHY=FLAT"
   - Verifying distributed training functionality
 
 [^mm]: Using [micromamba](https://micromamba.org)
+
+### IPEX Build Bugs
+
+- [❌ TAKE 1]
+
+    ```bash
+    # [2025-07-05 @ 23:20] hung (?) (@ 92% > ~ 2 hr)
+    #    [ 92%] Linking CXX shared library libxetla_gemm.so]
+    ```
+
+- [❌ TAKE 2]
+
+    ```bash
+    # [2025-07-06 @ 10:30:24] hung (?) (@ 97% )
+    #     [ 97%] Built target intel-ext-pt-gpu-op-TripleOps
+    # [2025-07-06 @ 11:01] ...[waiting]...
+    # [2025-07-06 @ 13:00] job ended :(
+    ```
+
+- [✅ TAKE 3]
+
+    ```bash
+    # [✅ TAKE 3]
+    # [2025-07-06 @ 18:00] Successfully built IPEX
+    # took: 1h:05m:36s
+    ```
 
 ## 📦 PyTorch 2.7
 
