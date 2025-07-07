@@ -14,7 +14,7 @@
 # - Usage: `./install_pt2p8.sh <envdir>`
 #
 # - Parameters:
-#   - `envdir`: Directory where the conda 
+#   - `envdir`: Directory where the conda
 #     environment will be created.
 #
 # - Example:
@@ -42,7 +42,7 @@
 # # [2025-07-06 @ 13:00] job ended :(
 # # ---------------------------------------------------------------
 # # [✅ TAKE 3]
-# # [2025-07-06 @ 18:00] Successfully built IPEX 
+# # [2025-07-06 @ 18:00] Successfully built IPEX
 # # took: 1h:05m:36s
 # #==================================================================
 # ```
@@ -92,7 +92,6 @@ setup_modules() {
     #======================================================
 }
 
-
 # Function to create (or activate, if it exists) a conda environment using micromamba.
 # If no arguments are provided, a default environment will be created in
 # `${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)` with Python "${DEFAULT_PYTHON_VERSION:-3.12}"
@@ -130,6 +129,10 @@ activate_or_create_micromamba_env() {
         echo "If no arguments are provided, a default environment will be created in ${HOME}/micromamba/$(date +%Y%m%d-%H%M%S) with Python 3.10"
         return 1
     fi
+
+    # Initialize shell for micromamba
+    shell_type="$(basename "${SHELL}")"
+    eval "$(micromamba shell hook --shell "${shell_type}")"
     # Check if the environment already exists
     if [[ -d "${envdir}" ]] && [[ -n "$(ls -A "${envdir}")" ]]; then
         echo "Found existing conda environment at ${envdir}. Activating it..."
@@ -148,9 +151,9 @@ activate_or_create_micromamba_env() {
             --channel conda-forge \
             --strict-channel-priority \
             "python=${python_version}" || {
-                echo "Failed to create conda environment at ${envdir}."
-                return 1
-            }
+            echo "Failed to create conda environment at ${envdir}."
+            return 1
+        }
 
         # Activate the newly created environment
         echo "Activating the conda environment at ${envdir}..."
@@ -172,7 +175,7 @@ build_bdist_wheel_from_github_repo() {
         return 1
     fi
     local repo_url="#1"
-    git clone "${repo_url}" && cd  "${repo_url##*/}" || return 1
+    git clone "${repo_url}" && cd "${repo_url##*/}" || return 1
     git submodule sync
     git submodule update --init --recursive
     if [[ -f "requirements.txt" ]]; then
@@ -212,10 +215,14 @@ prepare_repo_in_build_dir() {
         echo "Where <build_dir> is the directory where the repository will be cloned."
         return 1
     fi
-    local bd; bd="$(realpath "$1")"
-    local src; src="$2"
-    local name; name="${src##*/}" # Extract the repository name from the URL
-    local fp; fp="${bd}/${name}"  # Full path
+    local bd
+    bd="$(realpath "$1")"
+    local src
+    src="$2"
+    local name
+    name="${src##*/}" # Extract the repository name from the URL
+    local fp
+    fp="${bd}/${name}" # Full path
     if [[ ! -d "${fp}" ]]; then
         echo "Cloning ${name} from ${src} into ${fp}"
         git clone "${src}" "${fp}" || {
@@ -280,8 +287,10 @@ build_pytorch() {
     make triton || return 1
 
     echo "Setting environment variables for PyTorch build..."
-    CC=$(which gcc); export CC
-    CXX=$(which g++); export CXX
+    CC=$(which gcc)
+    export CC
+    CXX=$(which g++)
+    export CXX
     export REL_WITH_DEB_INFO=1
     export USE_CUDA=0
     export USE_ROCM=0
@@ -322,7 +331,6 @@ install_optional_pytorch_libs() {
     echo "Installing torchdata with no dependencies..."
     uv pip install --link-mode=copy torchdata --no-deps
 }
-
 
 # Function to build Intel Extension for PyTorch
 build_ipex() {
@@ -485,7 +493,6 @@ verify_installation() {
     python3 -c 'import torch; print(torch.__file__); print(*torch.__config__.show().split("\n"), sep="\n") ; print(f"{torch.__version__=}"); print(f"{torch.xpu.is_available()=}"); print(f"{torch.xpu.device_count()=}") ; import torch.distributed; print(f"{torch.distributed.is_xccl_available()=}"); import torch; import intel_extension_for_pytorch as ipex; print(f"{torch.__version__=}"); print(f"{ipex.__version__=}"); import oneccl_bindings_for_pytorch as oneccl_bpt; print(f"{oneccl_bpt.__version__=}") ; [print(f"[{i}]: {torch.xpu.get_device_properties(i)}") for i in range(torch.xpu.device_count())]'
 }
 
-
 # This function runs the simple `ezpz-test` to verify distributed training
 # functionality.
 # Usage: run_ezpz_test
@@ -530,7 +537,7 @@ setup_environment() {
         return 1
     }
     # Load necessary modules and set appropriate environment variables
-    load_modules || {
+    setup_modules || {
         echo "Failed to load necessary modules. Please check the output for details."
         return 1
     }
