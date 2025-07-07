@@ -174,7 +174,7 @@ build_bdist_wheel_from_github_repo() {
         echo "Usage: $0 <wheel_name>"
         return 1
     fi
-    local repo_url="#1"
+    local repo_url="$1"
     git clone "${repo_url}" && cd "${repo_url##*/}" || return 1
     git submodule sync
     git submodule update --init --recursive
