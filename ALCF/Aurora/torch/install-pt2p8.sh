@@ -433,6 +433,10 @@ build_h5py() {
     module load hdf5
     cd "${build_dir}/h5py" || return 1
     CC=mpicc CXX=mpicxx HDF5_MPI="ON" HDF5_DIR="${HDF5_ROOT}" python3 setup.py bdist_wheel | tee "h5py-build-whl-$(tstamp).log"
+
+    echo "Installing h5py wheel..."
+    uv pip install --link-mode=copy dist/*.whl
+
     echo "Showing h5cc configuration (for verification):"
     h5cc -showconfig
     cd - || return 1
@@ -585,12 +589,14 @@ build_and_install_libraries() {
         echo "Failed to build mpi4py. Please check the output for details."
         return 1
     }
+
     # [BROKEN AS OF 2025-07-06]
     # (`module load hdf5` not supported ??)
-    build_h5py "${build_dir}" || {
-        echo "Failed to build h5py. Please check the output for details."
-        return 1
-    }
+    # build_h5py "${build_dir}" || {
+    #     echo "Failed to build h5py. Please check the output for details."
+    #     return 1
+    # }
+
     # Took 0h:01m:08s
     build_torch_ao "${build_dir}" || {
         echo "Failed to build torch/ao. Please check the output for details."
