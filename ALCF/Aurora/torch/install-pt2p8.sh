@@ -50,6 +50,7 @@
 # ```
 ##################################
 
+DEFAULT_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION:-3.12}"
 
 # Exit immediately if a command exits with a non-zero status.
 if [[ "${DEBUG:-0}" == "1" ]]; then
@@ -57,8 +58,6 @@ if [[ "${DEBUG:-0}" == "1" ]]; then
     set -x
     set -euo pipefail
 fi
-
-NO_COLOR=1 source <(curl -L https://bit.ly/ezpz-utils) || return 1
 
 # --- Helper Functions ---
 install_micromamba() {
@@ -96,7 +95,7 @@ setup_modules() {
 
 # Function to create (or activate, if it exists) a conda environment using micromamba.
 # If no arguments are provided, a default environment will be created in
-# `${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)` with Python 3.12
+# `${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)` with Python "${DEFAULT_PYTHON_VERSION:-3.12}"
 #
 # - Usage: activate_or_create_mm_env [<envdir>] [<python_version>]
 # - Example:
@@ -121,10 +120,10 @@ activate_or_create_micromamba_env() {
     elif [[ "$#" -eq 1 ]]; then
         echo "Received one argument: envdir=$1"
         envdir="$(realpath "$1")"
-        python_version="3.12"
+        python_version="${DEFAULT_PYTHON_VERSION:-3.12}"
     elif [[ "$#" -eq 0 ]]; then
         echo "Received no arguments, using default envdir and python version"
-        envdir="${HOME}/miniforge/$(date +%Y%m%d-%H%M%S)"
+        envdir="${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)"
         python_version="3.12"
     else
         echo "Usage: $0 [<envdir>] [<python_version>]"
@@ -162,66 +161,11 @@ activate_or_create_micromamba_env() {
     fi
 }
 
-# Function to activate the conda environment
-# Usage: activate_or_create_conda_env [<envdir>] [<python_version>]
-# If no arguments are provided, a default environment will be created in 
-# ${HOME}/miniforge/$(date +%Y%m%d-%H%M%S) with Python 3.12
-activate_or_create_conda_env() {
-    if [[ "$#" -eq 2 ]]; then
-        # envdir, python version
-        envdir="$(realpath "$1")"
-        python_version="$2"
-    elif [[ "$#" -eq 1 ]]; then
-        # envdir only
-        envdir="$(realpath "$1")"
-        python_version="3.12"
-    elif [[ "$#" -eq 0 ]]; then
-        # no arguments, use default envdir and python version
-        envdir="${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)"
-        python_version="3.12"
-    else
-        echo "Usage: $0 [<envdir>] [<python_version>]"
-        echo "If no arguments are provided, a default environment will be created in ${HOME}/miniforge/$(date +%Y%m%d-%H%M%S)-test with Python 3.10"
-        return 1
-    fi
-    # Check if the environment already exists
-    if [[ -d "${envdir}" ]] && [[ -n "$(ls -A "${envdir}")" ]]; then
-        echo "Found existing conda environment at ${envdir}. Activating it..."
-        conda activate "${envdir}" || {
-            echo "Failed to activate existing conda environment at ${envdir}."
-            return 1
-        }
-        return 0
-    else
-        echo "Creating conda environment in: ${envdir}"
-        mkdir -p "${envdir}"
-
-        # Load conda
-        source /opt/aurora/24.347.0/spack/unified/0.9.2/install/linux-sles15-x86_64/gcc-13.3.0/miniforge3-24.3.0-0-gfganax/bin/activate
-        if ! command -v conda &>/dev/null; then
-            echo "Conda not found. Please ensure conda is installed and available in your PATH."
-            return 1
-        fi
-
-        conda create -y -p "${envdir}" --override-channels \
-            --channel https://software.repos.intel.com/python/conda/linux-64 \
-            --channel conda-forge \
-            --insecure \
-            --strict-channel-priority \
-            --yes \
-            --solver=libmamba \
-            python="${python_version}" || {
-                echo "Failed to create conda environment at ${envdir}."
-                return 1
-            }
-
-        conda activate "${envdir}" || {
-                echo "Failed to create or activate conda environment at ${envdir}."
-                return 1
-        }
-    fi
-}
-
+# Generic function to clone a GitHub repository and build a wheel from it.
+# NOTE: THIS HASNT BEEN TESTED YET
+# But, something like this should work and could _possibly_ be used as a
+# generic replacement instead of having to manually build each library
+# one-by-one as we're doing now.
 build_bdist_wheel_from_github_repo() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <wheel_name>"
@@ -259,7 +203,7 @@ build_bdist_wheel_from_github_repo() {
 # - Example:
 #
 #   ```bash
-#   ; prepare_repo_in_build_dir build-2025-07-05-203137 "https://github.com/pytorch/pytorch"
+#   prepare_repo_in_build_dir build-2025-07-05-203137 "https://github.com/pytorch/pytorch"
 #   ```
 prepare_repo_in_build_dir() {
     # build_dir, repo_url
@@ -542,13 +486,119 @@ verify_installation() {
 }
 
 
-# This function runs the simple `ezpz-test` to verify distributed training functionality.`
+# This function runs the simple `ezpz-test` to verify distributed training
+# functionality.
 # Usage: run_ezpz_test
 run_ezpz_test() {
     # shellcheck disable=SC1090
     NO_COLOR=1 source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_env
     python3 -m pip install "git+https://github.com/saforem2/ezpz" --require-virtualenv
     ezpz-test
+}
+
+setup_environment() {
+    echo "Setting up environment..."
+    if [[ "$#" -eq 1 ]]; then
+        conda_env_dir="$(realpath "$1")"
+    else
+        echo "Usage: $0 <conda_env_dir>"
+    fi
+    # ---- Install {uv, micromamba} if necessary
+    # Ensure uv is installed
+    if ! command -v uv &>/dev/null; then
+        echo "uv not found. Installing uv..."
+        install_uv || {
+            echo "Failed to install uv. Please ensure you have curl installed."
+            return 1
+        }
+    fi
+    export UV_LINK_MODE=copy
+    # Ensure micromamba is installed
+    if ! command -v micromamba &>/dev/null; then
+        echo "micromamba not found. Installing micromamba..."
+        install_micromamba || {
+            echo "Failed to install micromamba. Please ensure you have curl installed."
+            return 1
+        }
+    fi
+
+    # ---- Setup Environment
+    # Took < 10 min
+    echo "Creating (or activating) conda environment at: ${conda_env_dir}"
+    activate_or_create_micromamba_env "${conda_env_dir}" "3.12" || {
+        echo "Failed to create or activate conda environment at ${conda_env_dir}."
+        return 1
+    }
+    # Load necessary modules and set appropriate environment variables
+    load_modules || {
+        echo "Failed to load necessary modules. Please check the output for details."
+        return 1
+    }
+    echo "Environment setup complete. Conda environment is ready at: ${conda_env_dir}"
+}
+
+build_and_install_libraries() {
+    echo "Building libraries..."
+    if [[ "$#" -ne 1 ]]; then
+        echo "Usage: $0 <build_dir>"
+        echo "Where <build_dir> is the directory where our libraries will be built."
+        return 1
+    fi
+    build_dir="$(realpath "$1")"
+    # Ensure the build directory exists
+    if [[ ! -d "${build_dir}" ]]; then
+        echo "Creating build directory: ${build_dir}"
+        mkdir -p "${build_dir}" || {
+            echo "Failed to create build directory ${build_dir}."
+            return 1
+        }
+    fi
+    echo "Build directory is set to: ${build_dir}"
+
+    # ---- Build and Install Libraries
+    # Took ~ 2 hrs
+    build_pytorch "${build_dir}" || {
+        echo "Failed to build PyTorch. Please check the output for details."
+        return 1
+    }
+    # Took < 1 min
+    install_optional_pytorch_libs || {
+        echo "Failed to install optional PyTorch libraries. Please check the output for details."
+        return 1
+    }
+    # Took ~ 1 hr
+    # (and 3 tries, see \[IPEX Build Notes above\])
+    build_ipex "${build_dir}" || {
+        echo "Failed to build Intel Extension for PyTorch. Please check the output for details."
+        return 1
+    }
+    # Took 0h:03m:09s
+    build_torch_ccl "${build_dir}" || {
+        echo "Failed to build torch-ccl. Please check the output for details."
+        return 1
+    }
+    # Took 0h:01m:43s
+    build_mpi4py "${build_dir}" || {
+        echo "Failed to build mpi4py. Please check the output for details."
+        return 1
+    }
+    # [BROKEN AS OF 2025-07-06]
+    # (`module load hdf5` not supported ??)
+    build_h5py "${build_dir}" || {
+        echo "Failed to build h5py. Please check the output for details."
+        return 1
+    }
+    # Took 0h:01m:08s
+    build_torch_ao "${build_dir}" || {
+        echo "Failed to build torch/ao. Please check the output for details."
+        return 1
+    }
+    # Took 0h:00m:42s
+    build_torchtune "${build_dir}" || {
+        echo "Failed to build TorchTune. Please check the output for details."
+        return 1
+    }
+    echo "All libraries built and installed successfully in ${build_dir}."
 }
 
 # Main function to orchestrate the build and installation process.
@@ -574,12 +624,7 @@ run_ezpz_test() {
 #     main "$edir" "$bdir"
 #     ```
 main() {
-    # if [[ "$#" -ne 2 ]]; then
-    #     echo "Usage: $0 <build_dir> <conda_env_dir>"
-    #     echo "Where <build_dir> is the directory where our libraries will be built."
-    #     echo "And <conda_env_dir> is the directory where the conda environment will be created."
-    #     return 1
-    # fi
+    # ---- Parse Arguments
     if [[ "$#" -eq 2 ]]; then
         conda_env_dir="$(realpath "$1")"
         build_dir="$(realpath "$2")"
@@ -595,87 +640,25 @@ main() {
         return 1
     fi
 
-    # Ensure uv is installed
-    if ! command -v uv &>/dev/null; then
-        echo "uv not found. Installing uv..."
-        install_uv || {
-            echo "Failed to install uv. Please ensure you have curl installed."
-            return 1
-        }
-    fi
-    export UV_LINK_MODE=copy
-
-    # Ensure micromamba is installed
-    if ! command -v micromamba &>/dev/null; then
-        echo "micromamba not found. Installing micromamba..."
-        install_micromamba || {
-            echo "Failed to install micromamba. Please ensure you have curl installed."
-            return 1
-        }
-    fi
-
-    # Took < 10 min
-    echo "Creating (or activating) conda environment at: ${conda_env_dir}"
-    activate_or_create_micromamba_env "${conda_env_dir}" "3.12" || {
-        echo "Failed to create or activate conda environment at ${conda_env_dir}."
+    # ---- Setup Environment
+    setup_environment "${conda_env_dir}" || {
+        echo "Failed to set up the environment. Please check the output for details."
         return 1
     }
 
-    # Took ~ 2 hrs
-    build_pytorch "${build_dir}" || {  # ~ 2 hours
-        echo "Failed to build PyTorch. Please check the output for details."
+    # ---- Build and Install Libraries
+    build_and_install_libraries "${build_dir}" || {
+        echo "Failed to build and install libraries. Please check the output for details."
         return 1
     }
 
-    # Took < 1 min
-    install_optional_pytorch_libs || {  # < 1 min (9s for my last run)
-        echo "Failed to install optional PyTorch libraries. Please check the output for details."
-        return 1
-    }
-
-    # Took ~ 1 hr
-    # (and 3 tries, see \[IPEX Build Notes above\])
-    build_ipex "${build_dir}" || {
-        echo "Failed to build Intel Extension for PyTorch. Please check the output for details."
-        return 1
-    }
-
-    # Took 0h:03m:09s
-    build_torch_ccl "${build_dir}" || {
-        echo "Failed to build torch-ccl. Please check the output for details."
-        return 1
-    }
-
-    # Took 0h:01m:43s
-    build_mpi4py "${build_dir}" || {
-        echo "Failed to build mpi4py. Please check the output for details."
-        return 1
-    }
-
-    # [BROKEN AS OF 2025-07-06]
-    # (`module load hdf5` not supported ??)
-    build_h5py "${build_dir}" || {
-        echo "Failed to build h5py. Please check the output for details."
-        return 1
-    }
-
-    # Took 0h:01m:08s
-    build_torch_ao "${build_dir}" || {
-        echo "Failed to build torch/ao. Please check the output for details."
-        return 1
-    }
-
-    # Took 0h:00m:42s
-    build_torchtune "${build_dir}" || {
-        echo "Failed to build TorchTune. Please check the output for details."
-        return 1
-    }
-
+    # ---- Verify Installation
     verify_installation || {
         echo "Installation verification failed. Please check the output for details."
         return 1
     }
 
+    # ---- Test simple distributed training functionality
     run_ezpz_test || {
         echo "ezpz-test failed. Please check the output for details."
         return 1
