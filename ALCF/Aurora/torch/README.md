@@ -2,9 +2,10 @@
 
 ## 📝 Summary
 
-Tested and confirmed that each of the _individual_ build steps from here in
-[ALCF/Aurora/torch/install-pt2p8 @ main](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/ALCF/Aurora/torch/install-pt2p8.sh#L576-L685)
-are functional.
+- [x] Tested and confirmed that each of the _individual_ build steps from here in
+  [ALCF/Aurora/torch/install-pt2p8.sh](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/ALCF/Aurora/torch/install-pt2p8.sh#L576-L685)
+  are functional and described below in
+  [[👣 Running Step-by-Step for Verification]](#-running-step-by-step-for-verification)
 
 ### 👣 Running Step-by-Step for Verification
 
@@ -39,8 +40,9 @@ verify_installation
 run_ezpz_test
 ```
 
-Each of these (individually) were successful (though IPEX build took three
-tries 🤔), so am now retrying as an automated build via:
+Each of these (individually) were successful
+(though IPEX build took three tries 🤔),
+so am now retrying as an automated build via:
 
 ```bash
 git clone https://github.com/argonne-lcf/frameworks-standalone
@@ -51,8 +53,8 @@ ENV_DIR="/flare/datascience/foremans/micromamba/envs/2025-07-pt28-test-$(tstamp)
 bash ALCF/Aurora/torch/install-pt2p8.sh "${ENV_DIR}" "${BUILD_DIR}"
 ```
 
-and will see how that goes (though I expect it will only be as stable as the
-IPEX build)
+ 🤷‍♂️ and will see how that goes
+(though I expect it will only be as stable as the IPEX build)
 
 ### ⏱️ Build Time(s)
 
@@ -108,7 +110,7 @@ export "ZE_FLAT_DEVICE_HIERARCHY=FLAT"
   - Verifying installation
   - Verifying distributed training functionality
 
-[^mm]: Using [micromamba](https://micromamba.org)
+[^mm]: Using [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
 
 ### IPEX Build Bugs
 

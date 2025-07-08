@@ -1,62 +1,54 @@
 #!/bin/bash --login
-############################################
-# ```markdown
+#
 # This script is used to build and install:
-# - PyTorch 2.8
-# - Intel Extension for PyTorch
-# - Torch CCL
-# on the Aurora system.
+# - pytorch/pytorch/tree/release/2.8 \+
+#   - torchvision
+#   - torchaudio
+#   - torchdata
+#   - Torch AO
+#   - TorchTune
+# - intel/
+#   - intel-extension-for-pytorch
+#   - torch-ccl
+# - mpi4py/mpi4py
+# - ~h5py/h5py[^disabled]~
+# on the Intel Aurora system.
+#
+# [^disabled]: Until new `hdf5` module available
 #
 # It creates a new conda environment,
 # installs the necessary packages,
 # and activates the environment.
 #
-# - Usage: `./install_pt2p8.sh <envdir>`
+# - Usage: `./install_pt2p8.sh <conda_env_dir> [<build_dir>]`
 #
 # - Parameters:
-#   - `envdir`: Directory where the conda
-#     environment will be created.
+#   - `<conda_env_dir>`: Directory where the conda environment will be created.
+#   - `[<build_dir>]`: Directory where our libraries will be built.
 #
-# - Example:
+# - Example(s):
 #
-#   ```bash
-#   git clone https://github.com/argonne-lcf/frameworks-standalone
-#   cd frameworks-standalone
-#   # *Be sure to use a path _you_ have write access to!
-#   envdir="/flare//miniforge/$(date +%Y%m%d-%H%M%S)-test"
-#   bash ALCF/Aurora/torch/install-pt2p7.sh "${envdir}"
-#   ```
+#   - Specifying only the conda environment directory:
 #
-# ## IPEX Build Notes
+#     ```bash
+#     ./install_pt2p8.sh "/path/to/conda/env"
+#     ```
 #
-#  ```bash
-# # ========================[IPEX BUILD LOG]========================
-# # [❌ TAKE 1]
-# # [2025-07-05 @ 23:20] hung (?) (@ 92% > ~ 2 hr)
-# #    [ 92%] Linking CXX shared library libxetla_gemm.so]
-# # ----------------------------------------------------------------
-# # [❌ TAKE 2]
-# # [2025-07-06 @ 10:30:24] hung (?) (@ 97% )
-# #     [ 97%] Built target intel-ext-pt-gpu-op-TripleOps
-# # [2025-07-06 @ 11:01] ...[waiting]...
-# # [2025-07-06 @ 13:00] job ended :(
-# # ---------------------------------------------------------------
-# # [✅ TAKE 3]
-# # [2025-07-06 @ 18:00] Successfully built IPEX
-# # took: 1h:05m:36s
-# #==================================================================
-# ```
+#   - Specifying both directories (useful for debugging or continuing a previous build):
 #
-# ```
-##################################
+#     ```bash
+#     bdir="/path/to/build"
+#     edir="/path/to/conda/env"
+#     ./install_pt2p8.sh "$edir" "$bdir"
+#     ```
 
 DEFAULT_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION:-3.12}"
 
 # Exit immediately if a command exits with a non-zero status.
 if [[ "${DEBUG:-0}" == "1" ]]; then
-    # set -e
-    set -x
-    set -euo pipefail
+    set -o errexit # abort on nonzero exit status
+    set -o nounset # abort on unset variables
+    set -o pipefail # dont hide errors in pipes
 fi
 
 # --- Helper Functions ---
@@ -92,18 +84,14 @@ setup_modules() {
     #======================================================
 }
 
-# Function to create (or activate, if it exists) a conda environment using micromamba.
-# If no arguments are provided, a default environment will be created in
-# `${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)` with Python "${DEFAULT_PYTHON_VERSION:-3.12}"
+# Function to activate (or create, if not found) a conda environment using
+# [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
 #
-# - Usage: activate_or_create_mm_env [<envdir>] [<python_version>]
-# - Example:
-#
-#   ```bash
-#   ; activate_or_create_mm_env /flare/datascience/foremans/micromamba/envs/2025-07-pt28
-#   # ...[clipped]...
-#   took: 0h:07m:27s
-#   ```
+# - Usage: `activate_or_create_micromamba_env <envdir> [<python_version>]`
+# - Parameters:
+#   - `<envdir>`: Directory to look for the conda environment.
+#   - `[<python_version>]`: Optional Python version to use for the environment.
+#     If not specified, it defaults to the value of `${DEFAULT_PYTHON_VERSION:-3.12}`.
 activate_or_create_micromamba_env() {
     if ! command -v micromamba &>/dev/null; then
         echo "micromamba not found. Installing micromamba..."
@@ -120,13 +108,9 @@ activate_or_create_micromamba_env() {
         echo "Received one argument: envdir=$1"
         envdir="$(realpath "$1")"
         python_version="${DEFAULT_PYTHON_VERSION:-3.12}"
-    elif [[ "$#" -eq 0 ]]; then
-        echo "Received no arguments, using default envdir and python version"
-        envdir="${HOME}/micromamba/$(date +%Y%m%d-%H%M%S)"
-        python_version="3.12"
     else
-        echo "Usage: $0 [<envdir>] [<python_version>]"
-        echo "If no arguments are provided, a default environment will be created in ${HOME}/micromamba/$(date +%Y%m%d-%H%M%S) with Python 3.10"
+        echo "Usage: $0 <envdir> [<python_version>]"
+        echo "If no python version is specified, it defaults to ${DEFAULT_PYTHON_VERSION:-3.12}."
         return 1
     fi
 
@@ -140,7 +124,6 @@ activate_or_create_micromamba_env() {
             echo "Failed to activate existing conda environment at ${envdir}."
             return 1
         }
-        return 0
     else
         echo "Creating conda environment in: ${envdir}"
         micromamba create --prefix "${envdir}" \
@@ -154,7 +137,6 @@ activate_or_create_micromamba_env() {
             echo "Failed to create conda environment at ${envdir}."
             return 1
         }
-
         # Activate the newly created environment
         echo "Activating the conda environment at ${envdir}..."
         micromamba activate "${envdir}" || {
@@ -241,6 +223,8 @@ prepare_repo_in_build_dir() {
     cd - || return 1
 }
 
+# Function to check if the wheel file already exists in the build directory.
+# - Usage: check_if_already_built `<libdir>`
 check_if_already_built() {
     # Check if the wheel file already exists in the build directory
     if [[ "$#" -ne 1 ]]; then
@@ -264,25 +248,15 @@ check_if_already_built() {
 # Usage: build_pytorch <build_dir>
 # Where <build_dir> is the directory where PyTorch will be built.
 #
-# - Usage: build_pytorch <build_dir>
-# - Example:
+# Takes ~ 2 hrs
 #
-#   ```bash
-#   ; build_pytorch build-2025-07-05-203137
-#   Cloning pytorch from https://github.com/pytorch/pytorch into /lus/flare/projects/datascience/foremans/projects/argonne-lcf/frameworks-standalone/build-2025-07-05-203137/pytorch
-#   # ...[clipped]...
-#   took: 1h:59m:39s
-#   ```
+# - Usage: build_pytorch <build_dir>
 build_pytorch() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
         echo "Where <build_dir> is the directory where PyTorch will be built."
         return 1
     fi
-    # if python3 -c 'import torch' &>/dev/null; then
-    #     echo "PyTorch is already installed. Continuing with installation!."
-    #     return 0
-    # fi
     build_dir="$(realpath "$1")"
     pt_url="https://github.com/pytorch/pytorch"
     prepare_repo_in_build_dir "${build_dir}" "${pt_url}" || {
@@ -349,6 +323,7 @@ build_pytorch() {
 }
 
 # Function to install optional PyTorch libraries
+# - Usage: install_optional_pytorch_libs
 install_optional_pytorch_libs() {
     echo "Installing torchvision and torchaudio with no dependencies for XPU..."
     uv pip install --link-mode=copy torchvision torchaudio --no-deps --index-url https://download.pytorch.org/whl/xpu
@@ -357,6 +332,7 @@ install_optional_pytorch_libs() {
 }
 
 # Function to build Intel Extension for PyTorch
+# - Usage: build_ipex <build_dir>
 build_ipex() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -377,8 +353,8 @@ build_ipex() {
 
     cd "${build_dir}/intel-extension-for-pytorch" || return 1
 
-    echo "Checking out xpu-main branch..."
-    git checkout xpu-main
+    echo "Checking out last commit before 2.9 release..."
+    git checkout 5b3f3ab
 
     echo "Syncing and updating git submodules for Intel Extension for PyTorch..."
     git submodule sync
@@ -391,11 +367,12 @@ build_ipex() {
     echo "Building Intel Extension for PyTorch (IPEX)..."
     MAX_JOBS=48 CC=$(which gcc) CXX=$(which g++) INTELONEAPIROOT="${ONEAPI_ROOT}" python3 setup.py bdist_wheel | tee "ipex-build-whl-$(tstamp).log"
     echo "Installing Intel Extension for PyTorch wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install --link-mode=copy "dist/*.whl"
     cd - || return 1
 }
 
 # Function to build torch-ccl
+# - Usage: build_torch_ccl <build_dir>
 build_torch_ccl() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -432,6 +409,7 @@ build_torch_ccl() {
 }
 
 # Function to build mpi4py
+# - Usage: build_mpi4py <build_dir>
 build_mpi4py() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -461,6 +439,7 @@ build_mpi4py() {
 }
 
 # Function to build h5py
+# - Usage: build_h5py <build_dir>
 build_h5py() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -494,6 +473,7 @@ build_h5py() {
 }
 
 # Function to build torch / ao
+# - Usage: build_torch_ao <build_dir>
 build_torch_ao() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -521,6 +501,7 @@ build_torch_ao() {
 }
 
 # Function to build TorchTune and download model
+# - Usage: build_torchtune <build_dir>
 build_torchtune() {
     if [[ "$#" -ne 1 ]]; then
         echo "Usage: $0 <build_dir>"
@@ -548,6 +529,7 @@ build_torchtune() {
 }
 
 # Function to verify installation
+# - Usage: verify_installation
 verify_installation() {
     echo "--- Verifying Installation ---"
     echo "Running Python script to verify PyTorch and Intel Extension for PyTorch installation..."
@@ -556,7 +538,7 @@ verify_installation() {
 
 # This function runs the simple `ezpz-test` to verify distributed training
 # functionality.
-# Usage: run_ezpz_test
+# - Usage: run_ezpz_test
 run_ezpz_test() {
     # shellcheck disable=SC1090
     NO_COLOR=1 source <(curl -L https://bit.ly/ezpz-utils) && ezpz_setup_env
@@ -564,6 +546,13 @@ run_ezpz_test() {
     ezpz-test
 }
 
+# Function to set up the environment.
+# It:
+# - installs `uv` and `micromamba` if they are not already installed
+# - creates or activates a conda environment
+# - loads necessary modules
+# - sets appropriate environment variables
+# - Usage: setup_environment <conda_env_dir>
 setup_environment() {
     echo "Setting up environment..."
     if [[ "$#" -eq 1 ]]; then
@@ -605,6 +594,17 @@ setup_environment() {
     echo "Environment setup complete. Conda environment is ready at: ${conda_env_dir}"
 }
 
+# Function to build and install all libraries.
+# It:
+# - builds PyTorch and its optional libraries
+# - builds Intel Extension for PyTorch
+# - builds torch-ccl
+# - builds mpi4py
+# - builds h5py (if available)
+# - builds torch/ao
+# - builds TorchTune
+#
+# - Usage: build_and_install_libraries <build_dir>
 build_and_install_libraries() {
     echo "Building libraries..."
     if [[ "$#" -ne 1 ]]; then
@@ -679,7 +679,7 @@ build_and_install_libraries() {
 #   - `<conda_env_dir>`: Directory where the conda environment will be created.
 #   - `[<build_dir>]`: Directory where our libraries will be built.
 #
-# - Example(s):
+# - Example:
 #   - Specifying only the conda environment directory:
 #
 #     ```bash
