@@ -24,10 +24,10 @@ NOW=$(tstamp)
 BUILD_DIR="build-${NOW}"
 mkdir -p "${BUILD_DIR}"
 
-ENV_DIR="/flare/datascience/foremans/micromamba/envs/pt-28-${NOW}"
+ENV_DIR="/flare/datascience/foremans/micromamba/envs/pt28-${NOW}"
 activate_or_create_micromamba_env "${ENV_DIR}"
 
-load_modules
+setup_modules
 build_pytorch "${BUILD_DIR}"
 install_optional_pytorch_libs
 build_ipex "${BUILD_DIR}"
@@ -83,16 +83,19 @@ bash Aurora/pytorch/pt28.sh "${ENV_DIR}" "${BUILD_DIR}"
 For both of the new PyTorch 2.7, 2.8 builds, we're using the following set of modules:
 
 ```bash
-module restore
-module unload oneapi mpich
-module use /soft/compilers/oneapi/2025.1.3/modulefiles
-module use /soft/compilers/oneapi/nope/modulefiles
-module add mpich/nope/develop-git.6037a7a
-module load cmake
-unset CMAKE_ROOT
-export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e
-module add oneapi/public/2025.1.3
-export "ZE_FLAT_DEVICE_HIERARCHY=FLAT"
+setup_modules() {
+    module restore
+    module unload oneapi mpich
+    module use /soft/compilers/oneapi/2025.1.3/modulefiles
+    module use /soft/compilers/oneapi/nope/modulefiles
+    module add mpich/nope/develop-git.6037a7a
+    module load cmake
+    unset CMAKE_ROOT
+    export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e
+    module add oneapi/public/2025.1.3
+    export "ZE_FLAT_DEVICE_HIERARCHY=FLAT"
+}
+setup_modules
 ```
 
 ## ✨ PyTorch Nightly
