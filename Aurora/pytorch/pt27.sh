@@ -10,7 +10,7 @@
 # installs the necessary packages,
 # and activates the environment.
 #
-# - Usage: `./install_pt2p7.sh <envdir>`
+# - Usage: `./pt27.sh <envdir>`
 #
 # - Parameters:
 #   - `envdir`: Directory where the conda 
@@ -23,7 +23,7 @@
 #   cd frameworks-standalone
 #   # *Be sure to use a path _you_ have write access to!
 #   envdir="/flare//miniforge/$(date +%Y%m%d-%H%M%S)-test"
-#   bash ALCF/Aurora/torch/install-pt2p7.sh "${envdir}"
+#   bash Aurora/pytorch/pt27.sh "${envdir}"
 #   ```
 #
 ##################################
