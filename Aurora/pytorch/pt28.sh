@@ -11,7 +11,7 @@
 #   - intel-extension-for-pytorch
 #   - torch-ccl
 # - mpi4py/mpi4py
-# - ~h5py/h5py[^disabled]~
+# - ~~h5py/h5py[^disabled]~~
 # on the Intel Aurora system.
 #
 # [^disabled]: Until new `hdf5` module available
@@ -20,7 +20,7 @@
 # installs the necessary packages,
 # and activates the environment.
 #
-# - Usage: `./pt8.sh <conda_env_dir> [<build_dir>]`
+# - Usage: `./pt28.sh <conda_env_dir> [<build_dir>]`
 #
 # - Parameters:
 #   - `<conda_env_dir>`: Directory where the conda environment will be created.
