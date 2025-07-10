@@ -132,7 +132,7 @@ install_whls_and_deps() {
     # python3 -m pip uninstall -y numpy
     # python3 -m pip install numpy==1.26.4
     python3 -m pip install numpy==1.26.4
-    
+
     # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${pt_whl}"
     # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${ipex_whl}"
     # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${ccl_whl}"
