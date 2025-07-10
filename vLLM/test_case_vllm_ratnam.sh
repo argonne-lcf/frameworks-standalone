@@ -3,18 +3,8 @@
 export http_proxy="proxy.alcf.anl.gov:3128"
 export https_proxy="proxy.alcf.anl.gov:3128"
 
-## Load modules 2025.1.3 with PTI 0.10.3
-module restore
-module unload oneapi mpich
-module use /soft/compilers/oneapi/2025.1.3/modulefiles
-module use /soft/compilers/oneapi/nope/modulefiles
-module add mpich/nope/develop-git.6037a7a
-module load cmake
-unset CMAKE_ROOT
-export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e
-module add oneapi/public/2025.1.3
-
-CONDA_ENV_NAME=vLLM_Ratnam_pytorch_2p8_oneapi_2025p1p3_pti_0p10p3_python3p12
+## Ratnam's environment
+source /flare/Aurora_deployment/intel/pytorch/envs/torch_ipex_latest.env
 
 export TORCH_LLM_ALLREDUCE=1
 export CCL_ZE_IPC_EXCHANGE=drmfd
@@ -27,9 +17,6 @@ export TORCH_DEVICE_BACKEND_AUTOLOAD=0
 export SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS=2
 export OPT_W8A8_BLOCK_FP8_MATMUL=1
 export XPU_CCL_BACKEND="xccl"
-
-source /opt/aurora/24.347.0/spack/unified/0.9.2/install/linux-sles15-x86_64/gcc-13.3.0/miniforge3-24.3.0-0-gfganax/bin/activate
-conda activate /lus/flare/projects/datasets/softwares/envs/${CONDA_ENV_NAME}
 
 export HF_HOME="/flare/datasets/model-weights"
 export HF_DATASETS_CACHE="/flare/datasets/model-weights"
