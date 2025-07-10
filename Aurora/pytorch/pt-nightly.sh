@@ -12,7 +12,7 @@
 #   - intel-extension-for-pytorch
 #   - torch-ccl
 # - mpi4py/mpi4py
-# - ~h5py/h5py~[^disabled]
+# - ~~h5py/h5py~~[^disabled]
 # on the Intel Aurora system.
 #
 # [^disabled]: Until new `hdf5` module available
