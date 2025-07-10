@@ -50,7 +50,7 @@ if [[ "${DEBUG:-0}" == "1" ]]; then
 fi
 
 readonly PT="2.8"
-DEFAULT_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION:-3.12}"
+DEFAULT_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION:-3.11}"
 START_TIME="$(tstamp)"
 
 # source the ezpz-utils script for logging and other utilities
@@ -104,7 +104,7 @@ setup_modules() {
 # - Parameters:
 #   - `<envdir>`: Directory to look for the conda environment.
 #   - `[<python_version>]`: Optional Python version to use for the environment.
-#     If not specified, it defaults to the value of `${DEFAULT_PYTHON_VERSION:-3.12}`.
+#     If not specified, it defaults to the value of `${DEFAULT_PYTHON_VERSION:-3.11}`.
 activate_or_create_micromamba_env() {
     if ! command -v micromamba &>/dev/null; then
         log_message INFO "micromamba not found. Installing micromamba..."
@@ -120,10 +120,10 @@ activate_or_create_micromamba_env() {
     elif [[ "$#" -eq 1 ]]; then
         log_message INFO "Received one argument: envdir=$1"
         envdir="$(realpath "$1")"
-        python_version="${DEFAULT_PYTHON_VERSION:-3.12}"
+        python_version="${DEFAULT_PYTHON_VERSION:-3.11}"
     else
         log_message INFO "Usage: $0 <envdir> [<python_version>]"
-        log_message INFO "If no python version is specified, it defaults to ${DEFAULT_PYTHON_VERSION:-3.12}."
+        log_message INFO "If no python version is specified, it defaults to ${DEFAULT_PYTHON_VERSION:-3.11}."
         return 1
     fi
 
@@ -596,7 +596,7 @@ setup_environment() {
     # ---- Setup Environment
     # Took < 10 min
     log_message INFO "Creating (or activating) conda environment at: ${conda_env_dir}"
-    activate_or_create_micromamba_env "${conda_env_dir}" "3.12" || {
+    activate_or_create_micromamba_env "${conda_env_dir}" "${DEFAULT_PYTHON_VERSION}" || {
         log_message INFO "Failed to create or activate conda environment at ${conda_env_dir}."
         return 1
     }
