@@ -10,7 +10,7 @@
 # installs the necessary packages,
 # and activates the environment.
 #
-# - Usage: `./install_pt2p7.sh <envdir>`
+# - Usage: `./pt27.sh <envdir>`
 #
 # - Parameters:
 #   - `envdir`: Directory where the conda 
@@ -23,7 +23,7 @@
 #   cd frameworks-standalone
 #   # *Be sure to use a path _you_ have write access to!
 #   envdir="/flare//miniforge/$(date +%Y%m%d-%H%M%S)-test"
-#   bash ALCF/Aurora/torch/install-pt2p7.sh "${envdir}"
+#   bash Aurora/pytorch/pt27.sh "${envdir}"
 #   ```
 #
 ##################################
@@ -132,7 +132,7 @@ install_whls_and_deps() {
     # python3 -m pip uninstall -y numpy
     # python3 -m pip install numpy==1.26.4
     python3 -m pip install numpy==1.26.4
-    
+
     # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${pt_whl}"
     # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${ipex_whl}"
     # python3 -m pip install --no-deps --no-cache-dir --force-reinstall "${ccl_whl}"

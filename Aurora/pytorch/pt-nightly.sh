@@ -1,7 +1,8 @@
 #!/bin/bash --login
 #
 # This script is used to build and install:
-# - pytorch/pytorch/tree/release/2.8 \+
+# - pytorch/
+#   - pytorch
 #   - torchvision
 #   - torchaudio
 #   - torchdata
@@ -11,7 +12,7 @@
 #   - intel-extension-for-pytorch
 #   - torch-ccl
 # - mpi4py/mpi4py
-# - ~h5py/h5py[^disabled]~
+# - ~~h5py/h5py~~[^disabled]
 # on the Intel Aurora system.
 #
 # [^disabled]: Until new `hdf5` module available
@@ -20,7 +21,7 @@
 # installs the necessary packages,
 # and activates the environment.
 #
-# - Usage: `./install_pt2p8.sh <conda_env_dir> [<build_dir>]`
+# - Usage: `./pt-nightly.sh <conda_env_dir> [<build_dir>]`
 #
 # - Parameters:
 #   - `<conda_env_dir>`: Directory where the conda environment will be created.
@@ -31,7 +32,7 @@
 #   - Specifying only the conda environment directory:
 #
 #     ```bash
-#     ./install_pt2p8.sh "/path/to/conda/env"
+#     ./pt-nightly.sh "/path/to/conda/env"
 #     ```
 #
 #   - Specifying both directories (useful for debugging or continuing a previous build):
@@ -39,10 +40,8 @@
 #     ```bash
 #     bdir="/path/to/build"
 #     edir="/path/to/conda/env"
-#     ./install_pt2p8.sh "$edir" "$bdir"
+#     ./pt-nightly.sh "$edir" "$bdir"
 #     ```
-
-DEFAULT_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION:-3.12}"
 
 # Exit immediately if a command exits with a non-zero status.
 if [[ "${DEBUG:-0}" == "1" ]]; then
@@ -50,6 +49,21 @@ if [[ "${DEBUG:-0}" == "1" ]]; then
     set -o nounset # abort on unset variables
     set -o pipefail # dont hide errors in pipes
 fi
+
+readonly PT="nightly"
+DEFAULT_PYTHON_VERSION="${DEFAULT_PYTHON_VERSION:-3.11}"
+START_TIME="$(tstamp)"
+
+# source the ezpz-utils script for logging and other utilities
+# provides, e.g.:
+# log_message INFO "info"  # or DEBUG, WARN, ERROR, ...
+#
+# shellcheck disable=SC1090
+NO_COLOR=1 source <(curl -L https://bit.ly/ezpz-utils) || {
+    log_message ERROR "Failed to source ezpz-utils script. Please check your internet connection."
+    exit 1
+}
+
 
 # --- Helper Functions ---
 install_micromamba() {
@@ -91,26 +105,26 @@ setup_modules() {
 # - Parameters:
 #   - `<envdir>`: Directory to look for the conda environment.
 #   - `[<python_version>]`: Optional Python version to use for the environment.
-#     If not specified, it defaults to the value of `${DEFAULT_PYTHON_VERSION:-3.12}`.
+#     If not specified, it defaults to the value of `${DEFAULT_PYTHON_VERSION:-3.11}`.
 activate_or_create_micromamba_env() {
     if ! command -v micromamba &>/dev/null; then
-        echo "micromamba not found. Installing micromamba..."
+        log_message INFO "micromamba not found. Installing micromamba..."
         install_micromamba || {
-            echo "Failed to install micromamba. Please ensure you have curl installed."
+            log_message INFO "Failed to install micromamba. Please ensure you have curl installed."
             return 1
         }
     fi
     if [[ "$#" -eq 2 ]]; then
-        echo "Received two arguments: envdir=$1, python_version=$2"
+        log_message INFO "Received two arguments: envdir=$1, python_version=$2"
         envdir="$(realpath "$1")"
         python_version="$2"
     elif [[ "$#" -eq 1 ]]; then
-        echo "Received one argument: envdir=$1"
+        log_message INFO "Received one argument: envdir=$1"
         envdir="$(realpath "$1")"
-        python_version="${DEFAULT_PYTHON_VERSION:-3.12}"
+        python_version="${DEFAULT_PYTHON_VERSION:-3.11}"
     else
-        echo "Usage: $0 <envdir> [<python_version>]"
-        echo "If no python version is specified, it defaults to ${DEFAULT_PYTHON_VERSION:-3.12}."
+        log_message INFO "Usage: $0 <envdir> [<python_version>]"
+        log_message INFO "If no python version is specified, it defaults to ${DEFAULT_PYTHON_VERSION:-3.11}."
         return 1
     fi
 
@@ -119,13 +133,13 @@ activate_or_create_micromamba_env() {
     eval "$(micromamba shell hook --shell "${shell_type}")"
     # Check if the environment already exists
     if [[ -d "${envdir}" ]] && [[ -n "$(ls -A "${envdir}")" ]]; then
-        echo "Found existing conda environment at ${envdir}. Activating it..."
+        log_message INFO "Found existing conda environment at ${envdir}. Activating it..."
         micromamba activate "${envdir}" || {
-            echo "Failed to activate existing conda environment at ${envdir}."
+            log_message INFO "Failed to activate existing conda environment at ${envdir}."
             return 1
         }
     else
-        echo "Creating conda environment in: ${envdir}"
+        log_message INFO "Creating conda environment in: ${envdir}"
         micromamba create --prefix "${envdir}" \
             --yes \
             --verbose \
@@ -134,13 +148,13 @@ activate_or_create_micromamba_env() {
             --channel conda-forge \
             --strict-channel-priority \
             "python=${python_version}" || {
-            echo "Failed to create conda environment at ${envdir}."
+            log_message INFO "Failed to create conda environment at ${envdir}."
             return 1
         }
         # Activate the newly created environment
-        echo "Activating the conda environment at ${envdir}..."
+        log_message INFO "Activating the conda environment at ${envdir}..."
         micromamba activate "${envdir}" || {
-            echo "Failed to create or activate conda environment at ${envdir}."
+            log_message INFO "Failed to create or activate conda environment at ${envdir}."
             return 1
         }
     fi
@@ -153,7 +167,7 @@ activate_or_create_micromamba_env() {
 # one-by-one as we're doing now.
 build_bdist_wheel_from_github_repo() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <wheel_name>"
+        log_message INFO "Usage: $0 <wheel_name>"
         return 1
     fi
     local repo_url="$1"
@@ -164,19 +178,19 @@ build_bdist_wheel_from_github_repo() {
         uv pip install -r requirements.txt
     fi
     if [[ -f "setup.py" ]]; then
-        echo "Building wheel from setup.py..."
+        log_message INFO "Building wheel from setup.py..."
         uv pip install --upgrade pip setuptools wheel
         python3 setup.py bdist_wheel
         uv pip install dist/*.whl
     elif [[ -f "pyproject.toml" ]]; then
-        echo "Building wheel from pyproject.toml..."
+        log_message INFO "Building wheel from pyproject.toml..."
         python3 -m build --installer=uv
     fi
     uv pip install dist/*.whl || {
-        echo "Failed to install the built wheel."
+        log_message INFO "Failed to install the built wheel."
         return 1
     }
-    echo "Successfully built and installed the wheel from ${repo_url}."
+    log_message INFO "Successfully built and installed the wheel from ${repo_url}."
     cd - || return 1
 }
 
@@ -193,8 +207,8 @@ build_bdist_wheel_from_github_repo() {
 prepare_repo_in_build_dir() {
     # build_dir, repo_url
     if [[ "$#" -ne 2 ]]; then
-        echo "Usage: $0 <build_dir> <repo_url>"
-        echo "Where <build_dir> is the directory where the repository will be cloned."
+        log_message INFO "Usage: $0 <build_dir> <repo_url>"
+        log_message INFO "Where <build_dir> is the directory where the repository will be cloned."
         return 1
     fi
     local bd
@@ -206,16 +220,16 @@ prepare_repo_in_build_dir() {
     local fp
     fp="${bd}/${name}" # Full path
     if [[ ! -d "${fp}" ]]; then
-        echo "Cloning ${name} from ${src} into ${fp}"
+        log_message INFO "Cloning ${name} from ${src} into ${fp}"
         git clone "${src}" "${fp}" || {
-            echo "Failed to clone ${src}."
+            log_message INFO "Failed to clone ${src}."
             return 1
         }
     else
-        echo "${name} already exists in ${bd}. Skipping clone."
+        log_message INFO "${name} already exists in ${bd}. Skipping clone."
     fi
     cd "${fp}" || {
-        echo "Failed to change directory to ${fp}. Please ensure it exists."
+        log_message INFO "Failed to change directory to ${fp}. Please ensure it exists."
         return 1
     }
     git submodule sync
@@ -228,15 +242,15 @@ prepare_repo_in_build_dir() {
 check_if_already_built() {
     # Check if the wheel file already exists in the build directory
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 libdir"
+        log_message INFO "Usage: $0 libdir"
         return 1
     fi
 
     local ldir; ldir="$(realpath "$1")"
-    echo "Checking for existing wheels in ${ldir}/dist..."
+    log_message INFO "Checking for existing wheels in ${ldir}/dist..."
 
     if [[ -d "${ldir}/dist" ]] && [[ -n "$(ls -A "${ldir}/dist")" ]]; then
-        echo "Found existing wheels in ${ldir}/dist:"
+        log_message INFO "Found existing wheels in ${ldir}/dist:"
         ls "${ldir}/dist"/*.whl
         return 0
     else
@@ -253,38 +267,35 @@ check_if_already_built() {
 # - Usage: build_pytorch <build_dir>
 build_pytorch() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where PyTorch will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where PyTorch will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     pt_url="https://github.com/pytorch/pytorch"
     prepare_repo_in_build_dir "${build_dir}" "${pt_url}" || {
-        echo "Failed to prepare PyTorch repository."
+        log_message INFO "Failed to prepare PyTorch repository."
         return 1
     }
 
     if check_if_already_built "${build_dir}/pytorch"; then
-        echo "PyTorch wheel already exists. Skipping build."
+        log_message INFO "PyTorch wheel already exists. Skipping build."
         return 0
     fi
 
-    echo "Navigating into ${build_dir}/pytorch/"
+    log_message INFO "Navigating into ${build_dir}/pytorch/"
     cd "${build_dir}/pytorch" || return 1
 
-    echo "Checking out release/2.8 branch..."
-    git checkout release/2.8
+    log_message INFO "Installing PyTorch build dependencies..."
+    uv pip install cmake ninja
+    uv pip install -r requirements.txt
+    uv pip install mkl-static mkl-include
 
-    echo "Installing PyTorch build dependencies..."
-    uv pip install --link-mode=copy cmake ninja
-    uv pip install --link-mode=copy -r requirements.txt
-    uv pip install --link-mode=copy mkl-static mkl-include
-
-    echo "Making triton..."
+    log_message INFO "Making triton..."
     export USE_XPU=1 # for Intel GPU support
     make triton || return 1
 
-    echo "Setting environment variables for PyTorch build..."
+    log_message INFO "Setting environment variables for PyTorch build..."
     CC=$(which gcc)
     export CC
     CXX=$(which g++)
@@ -311,63 +322,61 @@ build_pytorch() {
     export TORCH_XPU_ARCH_LIST='pvc'
     export OCLOC_VERSION=24.39.1
 
-    echo "Checking compilers:"
-    echo "Using gcc from: $(which -a gcc)"
-    echo "Using g++ from: $(which -a g++)"
+    log_message INFO "Checking compilers:"
+    log_message INFO "Using gcc from: $(which -a gcc)"
+    log_message INFO "Using g++ from: $(which -a g++)"
 
-    echo "Building PyTorch (this may take ~30 minutes)..."
+    log_message INFO "Building PyTorch (this may take ~30 minutes)..."
     python3 setup.py bdist_wheel | tee "torch-build-whl-$(tstamp).log"
-    echo "Installing PyTorch wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    log_message INFO "Installing PyTorch wheel..."
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
 # Function to install optional PyTorch libraries
 # - Usage: install_optional_pytorch_libs
 install_optional_pytorch_libs() {
-    echo "Installing torchvision and torchaudio with no dependencies for XPU..."
-    uv pip install --link-mode=copy torchvision torchaudio --no-deps --index-url https://download.pytorch.org/whl/xpu
-    echo "Installing torchdata with no dependencies..."
-    uv pip install --link-mode=copy torchdata --no-deps
+    log_message INFO "Installing torchvision and torchaudio with no dependencies for XPU..."
+    uv pip install torchvision torchaudio --no-deps --index-url https://download.pytorch.org/whl/xpu
+    log_message INFO "Installing torchdata with no dependencies..."
+    uv pip install torchdata --no-deps
 }
 
 # Function to build Intel Extension for PyTorch
 # - Usage: build_ipex <build_dir>
 build_ipex() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where Intel Extension for PyTorch will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where Intel Extension for PyTorch will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     ipex_url="https://github.com/intel/intel-extension-for-pytorch"
     prepare_repo_in_build_dir "${build_dir}" "${ipex_url}" || {
-        echo "Failed to prepare Intel Extension for PyTorch repository."
+        log_message INFO "Failed to prepare Intel Extension for PyTorch repository."
         return 1
     }
     # Check if the wheel file already exists in the build directory
     if check_if_already_built "${build_dir}/intel-extension-for-pytorch"; then
-        echo "Intel Extension for PyTorch wheel already exists. Skipping build."
+        log_message INFO "Intel Extension for PyTorch wheel already exists. Skipping build."
         return 0
     fi
 
     cd "${build_dir}/intel-extension-for-pytorch" || return 1
+    git checkout xpu-main
 
-    echo "Checking out last commit before 2.9 release..."
-    git checkout 5b3f3ab
-
-    echo "Syncing and updating git submodules for Intel Extension for PyTorch..."
+    log_message INFO "Syncing and updating git submodules for Intel Extension for PyTorch..."
     git submodule sync
     git submodule update --init --recursive
 
-    echo "Installing Intel Extension for PyTorch dependencies..."
-    uv pip install --link-mode=copy -r requirements.txt
-    uv pip install --link-mode=copy --upgrade pip setuptools wheel build black flake8
+    log_message INFO "Installing Intel Extension for PyTorch dependencies..."
+    uv pip install -r requirements.txt
+    uv pip install --upgrade pip setuptools wheel build black flake8
 
-    echo "Building Intel Extension for PyTorch (IPEX)..."
+    log_message INFO "Building Intel Extension for PyTorch (IPEX)..."
     MAX_JOBS=48 CC=$(which gcc) CXX=$(which g++) INTELONEAPIROOT="${ONEAPI_ROOT}" python3 setup.py bdist_wheel | tee "ipex-build-whl-$(tstamp).log"
-    echo "Installing Intel Extension for PyTorch wheel..."
-    uv pip install --link-mode=copy "dist/*.whl"
+    log_message INFO "Installing Intel Extension for PyTorch wheel..."
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -375,36 +384,33 @@ build_ipex() {
 # - Usage: build_torch_ccl <build_dir>
 build_torch_ccl() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where torch-ccl will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where torch-ccl will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     ccl_url="https://github.com/intel/torch-ccl"
     prepare_repo_in_build_dir "${build_dir}" "${ccl_url}" || {
-        echo "Failed to prepare torch-ccl repository."
+        log_message INFO "Failed to prepare torch-ccl repository."
         return 1
     }
 
     # Check if the wheel file already exists in the build directory
     if check_if_already_built "${build_dir}/torch-ccl"; then
-        echo "torch-ccl wheel already exists. Skipping build."
+        log_message INFO "torch-ccl wheel already exists. Skipping build."
         return 0
     fi
 
     cd "${build_dir}/torch-ccl" || return 1
 
-    echo "Checking out specific commit c27ded5..."
-    git checkout c27ded5
+    log_message INFO "Installing torch-ccl dependencies..."
+    uv pip install -r requirements.txt
 
-    echo "Installing torch-ccl dependencies..."
-    uv pip install --link-mode=copy -r requirements.txt
-
-    echo "Building torch-ccl..."
+    log_message INFO "Building torch-ccl..."
     ONECCL_BINDINGS_FOR_PYTORCH_BACKEND=xpu INTELONEAPIROOT="${ONEAPI_ROOT}" USE_SYSTEM_ONECCL=ON COMPUTE_BACKEND=dpcpp python3 setup.py bdist_wheel | tee "torch-ccl-build-whl-$(tstamp).log"
 
-    echo "Installing torch-ccl wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    log_message INFO "Installing torch-ccl wheel..."
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -412,29 +418,29 @@ build_torch_ccl() {
 # - Usage: build_mpi4py <build_dir>
 build_mpi4py() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where mpi4py will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where mpi4py will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     mpi4py_url="https://github.com/mpi4py/mpi4py"
     prepare_repo_in_build_dir "${build_dir}" "${mpi4py_url}" || {
-        echo "Failed to prepare mpi4py repository."
+        log_message INFO "Failed to prepare mpi4py repository."
         return 1
     }
     # Check if the wheel file already exists in the build directory
     if check_if_already_built "${build_dir}/mpi4py"; then
-        echo "mpi4py wheel already exists. Skipping build."
+        log_message INFO "mpi4py wheel already exists. Skipping build."
         return 0
     fi
     cd "${build_dir}/mpi4py" || return 1
-    echo "Building mpi4py..."
+    log_message INFO "Building mpi4py..."
     CC=mpicc CXX=mpicxx python3 setup.py bdist_wheel | tee "mpi4py-build-whl-$(tstamp).log"
-    echo "Installing mpi4py wheel..."
-    uv pip install --link-mode=copy dist/*.whl
-    echo "Showing mpi4py configuration (for verification):"
+    log_message INFO "Installing mpi4py wheel..."
+    uv pip install dist/*.whl
+    log_message INFO "Showing mpi4py configuration (for verification):"
     python3 -c 'import mpi4py; print(mpi4py.get_config())'
-    echo "mpi4py installed successfully."
+    log_message INFO "mpi4py installed successfully."
     cd - || return 1
 }
 
@@ -442,32 +448,32 @@ build_mpi4py() {
 # - Usage: build_h5py <build_dir>
 build_h5py() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where h5py will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where h5py will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     h5py_url="https://github.com/h5py/h5py"
     prepare_repo_in_build_dir "${build_dir}" "${h5py_url}" || {
-        echo "Failed to prepare h5py repository."
+        log_message INFO "Failed to prepare h5py repository."
         return 1
     }
 
     # Check if the wheel file already exists in the build directory
     if check_if_already_built "${build_dir}/h5py"; then
-        echo "h5py wheel already exists. Skipping build."
+        log_message INFO "h5py wheel already exists. Skipping build."
         return 0
     fi
 
-    echo "Installing h5py..."
+    log_message INFO "Installing h5py..."
     module load hdf5
     cd "${build_dir}/h5py" || return 1
     CC=mpicc CXX=mpicxx HDF5_MPI="ON" HDF5_DIR="${HDF5_ROOT}" python3 setup.py bdist_wheel | tee "h5py-build-whl-$(tstamp).log"
 
-    echo "Installing h5py wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    log_message INFO "Installing h5py wheel..."
+    uv pip install dist/*.whl
 
-    echo "Showing h5cc configuration (for verification):"
+    log_message INFO "Showing h5cc configuration (for verification):"
     h5cc -showconfig
     cd - || return 1
 }
@@ -476,27 +482,27 @@ build_h5py() {
 # - Usage: build_torch_ao <build_dir>
 build_torch_ao() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where torch/ao will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where torch/ao will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     ao_url="https://github.com/pytorch/ao"
     prepare_repo_in_build_dir "${build_dir}" "${ao_url}" || {
-        echo "Failed to prepare torch/ao repository."
+        log_message INFO "Failed to prepare torch/ao repository."
         return 1
     }
     # Check if the wheel file already exists in the build directory
     if check_if_already_built "${build_dir}/ao"; then
-        echo "torch/ao wheel already exists. Skipping build."
+        log_message INFO "torch/ao wheel already exists. Skipping build."
         return 0
     fi
 
-    echo "Building torch/ao..."
+    log_message INFO "Building torch/ao..."
     cd "${build_dir}/ao" || return 1
     USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 setup.py bdist_wheel | tee "torchao-build-whl-$(tstamp).log"
-    echo "Installing torch/ao wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    log_message INFO "Installing torch/ao wheel..."
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -504,35 +510,35 @@ build_torch_ao() {
 # - Usage: build_torchtune <build_dir>
 build_torchtune() {
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where TorchTune will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where TorchTune will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     torchtune_url="https://github.com/pytorch/torchtune"
     prepare_repo_in_build_dir "${build_dir}" "${torchtune_url}" || {
-        echo "Failed to prepare TorchTune repository."
+        log_message INFO "Failed to prepare TorchTune repository."
         return 1
     }
     # Check if the wheel file already exists in the build directory
     if check_if_already_built "${build_dir}/torchtune"; then
-        echo "TorchTune wheel already exists. Skipping build."
+        log_message INFO "TorchTune wheel already exists. Skipping build."
         return 0
     fi
 
-    echo "Installing TorchTune in editable mode..."
+    log_message INFO "Installing TorchTune in editable mode..."
     cd "${build_dir}/torchtune" || return 1
     USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 -m build --installer=uv | tee "torchtune-build-$(tstamp).log"
-    echo "Installing TorchTune wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    log_message INFO "Installing TorchTune wheel..."
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
 # Function to verify installation
 # - Usage: verify_installation
 verify_installation() {
-    echo "--- Verifying Installation ---"
-    echo "Running Python script to verify PyTorch and Intel Extension for PyTorch installation..."
+    log_message INFO "--- Verifying Installation ---"
+    log_message INFO "Running Python script to verify PyTorch and Intel Extension for PyTorch installation..."
     python3 -c 'import torch; print(torch.__file__); print(*torch.__config__.show().split("\n"), sep="\n") ; print(f"{torch.__version__=}"); print(f"{torch.xpu.is_available()=}"); print(f"{torch.xpu.device_count()=}") ; import torch.distributed; print(f"{torch.distributed.is_xccl_available()=}"); import torch; import intel_extension_for_pytorch as ipex; print(f"{torch.__version__=}"); print(f"{ipex.__version__=}"); import oneccl_bindings_for_pytorch as oneccl_bpt; print(f"{oneccl_bpt.__version__=}") ; [print(f"[{i}]: {torch.xpu.get_device_properties(i)}") for i in range(torch.xpu.device_count())]'
 }
 
@@ -554,44 +560,45 @@ run_ezpz_test() {
 # - sets appropriate environment variables
 # - Usage: setup_environment <conda_env_dir>
 setup_environment() {
-    echo "Setting up environment..."
+    log_message INFO "Setting up environment..."
     if [[ "$#" -eq 1 ]]; then
         conda_env_dir="$(realpath "$1")"
     else
-        echo "Usage: $0 <conda_env_dir>"
+        log_message INFO "Usage: $0 <conda_env_dir>"
     fi
     # ---- Install {uv, micromamba} if necessary
     # Ensure uv is installed
     if ! command -v uv &>/dev/null; then
-        echo "uv not found. Installing uv..."
+        log_message INFO "uv not found. Installing uv..."
         install_uv || {
-            echo "Failed to install uv. Please ensure you have curl installed."
+            log_message INFO "Failed to install uv. Please ensure you have curl installed."
             return 1
         }
     fi
-    export UV_LINK_MODE=copy
+    export UV_CACHE_DIR="${UV_CACHE_DIR:-${conda_env_dir}/.cache/uv}"
     # Ensure micromamba is installed
     if ! command -v micromamba &>/dev/null; then
-        echo "micromamba not found. Installing micromamba..."
+        log_message INFO "micromamba not found. Installing micromamba..."
         install_micromamba || {
-            echo "Failed to install micromamba. Please ensure you have curl installed."
+            log_message INFO "Failed to install micromamba. Please ensure you have curl installed."
             return 1
         }
     fi
 
     # ---- Setup Environment
     # Took < 10 min
-    echo "Creating (or activating) conda environment at: ${conda_env_dir}"
-    activate_or_create_micromamba_env "${conda_env_dir}" "3.12" || {
-        echo "Failed to create or activate conda environment at ${conda_env_dir}."
+    log_message INFO "Creating (or activating) conda environment at: ${conda_env_dir}"
+    log_message INFO "Using Python version: ${DEFAULT_PYTHON_VERSION}"
+    activate_or_create_micromamba_env "${conda_env_dir}" "${DEFAULT_PYTHON_VERSION}" || {
+        log_message INFO "Failed to create or activate conda environment at ${conda_env_dir}."
         return 1
     }
     # Load necessary modules and set appropriate environment variables
     setup_modules || {
-        echo "Failed to load necessary modules. Please check the output for details."
+        log_message INFO "Failed to load necessary modules. Please check the output for details."
         return 1
     }
-    echo "Environment setup complete. Conda environment is ready at: ${conda_env_dir}"
+    log_message INFO "Environment setup complete. Conda environment is ready at: ${conda_env_dir}"
 }
 
 # Function to build and install all libraries.
@@ -606,69 +613,69 @@ setup_environment() {
 #
 # - Usage: build_and_install_libraries <build_dir>
 build_and_install_libraries() {
-    echo "Building libraries..."
+    log_message INFO "Building libraries..."
     if [[ "$#" -ne 1 ]]; then
-        echo "Usage: $0 <build_dir>"
-        echo "Where <build_dir> is the directory where our libraries will be built."
+        log_message INFO "Usage: $0 <build_dir>"
+        log_message INFO "Where <build_dir> is the directory where our libraries will be built."
         return 1
     fi
     build_dir="$(realpath "$1")"
     # Ensure the build directory exists
     if [[ ! -d "${build_dir}" ]]; then
-        echo "Creating build directory: ${build_dir}"
+        log_message INFO "Creating build directory: ${build_dir}"
         mkdir -p "${build_dir}" || {
-            echo "Failed to create build directory ${build_dir}."
+            log_message INFO "Failed to create build directory ${build_dir}."
             return 1
         }
     fi
-    echo "Build directory is set to: ${build_dir}"
+    log_message INFO "Build directory is set to: ${build_dir}"
 
     # ---- Build and Install Libraries
     # Took ~ 2 hrs
     build_pytorch "${build_dir}" || {
-        echo "Failed to build PyTorch. Please check the output for details."
+        log_message INFO "Failed to build PyTorch. Please check the output for details."
         return 1
     }
     # Took < 1 min
     install_optional_pytorch_libs || {
-        echo "Failed to install optional PyTorch libraries. Please check the output for details."
+        log_message INFO "Failed to install optional PyTorch libraries. Please check the output for details."
         return 1
     }
     # Took ~ 1 hr
     # (and 3 tries, see \[IPEX Build Notes above\])
     build_ipex "${build_dir}" || {
-        echo "Failed to build Intel Extension for PyTorch. Please check the output for details."
+        log_message INFO "Failed to build Intel Extension for PyTorch. Please check the output for details."
         return 1
     }
     # Took 0h:03m:09s
     build_torch_ccl "${build_dir}" || {
-        echo "Failed to build torch-ccl. Please check the output for details."
+        log_message INFO "Failed to build torch-ccl. Please check the output for details."
         return 1
     }
     # Took 0h:01m:43s
     build_mpi4py "${build_dir}" || {
-        echo "Failed to build mpi4py. Please check the output for details."
+        log_message INFO "Failed to build mpi4py. Please check the output for details."
         return 1
     }
 
     # [BROKEN AS OF 2025-07-06]
     # (`module load hdf5` not supported ??)
     # build_h5py "${build_dir}" || {
-    #     echo "Failed to build h5py. Please check the output for details."
+    #     log_message INFO "Failed to build h5py. Please check the output for details."
     #     return 1
     # }
 
     # Took 0h:01m:08s
     build_torch_ao "${build_dir}" || {
-        echo "Failed to build torch/ao. Please check the output for details."
+        log_message INFO "Failed to build torch/ao. Please check the output for details."
         return 1
     }
     # Took 0h:00m:42s
     build_torchtune "${build_dir}" || {
-        echo "Failed to build TorchTune. Please check the output for details."
+        log_message INFO "Failed to build TorchTune. Please check the output for details."
         return 1
     }
-    echo "All libraries built and installed successfully in ${build_dir}."
+    log_message INFO "All libraries built and installed successfully in ${build_dir}."
 }
 
 # Main function to orchestrate the build and installation process.
@@ -700,42 +707,59 @@ main() {
         build_dir="$(realpath "$2")"
     elif [[ "$#" -eq 1 ]]; then
         conda_env_dir="$(realpath "$1")"
-        build_dir="$(pwd)/build-$(tstamp)"
+        TSTAMP=$(tstamp)
+        build_dir="$(pwd)/builds/${PT}/${TSTAMP}"
+        log_message INFO "No build directory specified. Using default: ${build_dir}"
         mkdir -p "${build_dir}"
     else
-        echo "Usage: $0 <conda_env_dir> [<build_dir>]"
-        echo "Where <conda_env_dir> is the directory where the conda environment will be created."
-        echo "And [<build_dir>] is the directory where our libraries will be built."
-        echo "If no build directory is specified, a default one will be created in the current working directory."
+        log_message INFO "Usage: $0 <conda_env_dir> [<build_dir>]"
+        log_message INFO "Where <conda_env_dir> is the directory where the conda environment will be created."
+        log_message INFO "And [<build_dir>] is the directory where our libraries will be built."
+        log_message INFO "If no build directory is specified, a default one will be created in the current working directory."
         return 1
     fi
 
     # ---- Setup Environment
     setup_environment "${conda_env_dir}" || {
-        echo "Failed to set up the environment. Please check the output for details."
+        log_message INFO "Failed to set up the environment. Please check the output for details."
         return 1
     }
 
     # ---- Build and Install Libraries
     build_and_install_libraries "${build_dir}" || {
-        echo "Failed to build and install libraries. Please check the output for details."
+        log_message INFO "Failed to build and install libraries. Please check the output for details."
         return 1
     }
 
     # ---- Verify Installation
     verify_installation || {
-        echo "Installation verification failed. Please check the output for details."
+        log_message INFO "Installation verification failed. Please check the output for details."
         return 1
     }
 
     # ---- Test simple distributed training functionality
     run_ezpz_test || {
-        echo "ezpz-test failed. Please check the output for details."
+        log_message INFO "ezpz-test failed. Please check the output for details."
         return 1
     }
 
-    echo "All build and installation steps completed successfully!"
+    log_message INFO "All build and installation steps completed successfully!"
 }
 
-# Call the main function
-main "$@"
+
+if [[ -n "${NO_BUILD:-}" ]]; then
+    log_message INFO "Skipping build steps as NO_BUILD is set."
+else
+    # Ensure the script is run with the necessary arguments
+    if [[ "$#" -lt 1 ]]; then
+        log_message INFO "Usage: $0 <conda_env_dir> [<build_dir>]"
+        log_message INFO "Please provide at least the conda environment directory."
+        exit 1
+    fi
+    log_message INFO "Starting build..."
+    log_message INFO "Log will be saved to install-pt${PT}-${START_TIME}.log"
+    main "$@" | tee "install-pt${PT}-${START_TIME}.log" || {
+        log_message INFO "Build failed. Please check the log for details."
+        exit 1
+    }
+fi

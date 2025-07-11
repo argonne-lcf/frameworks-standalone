@@ -3,7 +3,7 @@
 ## 📝 Summary
 
 - [x] Tested and confirmed that each of the _individual_ build steps from here in
-  [ALCF/Aurora/torch/install-pt2p8.sh](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/ALCF/Aurora/torch/install-pt2p8.sh#L576-L685)
+  [Aurora/pytorch/pt28.sh](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/Aurora/pytorch/pt28.sh#L576-L685)
   are functional and described below in
   [[👣 Running Step-by-Step for Verification]](#-running-step-by-step-for-verification)
 
@@ -11,22 +11,23 @@
 
 In order to verify the functionality of each of the individual build
 components, it is useful to walk through each of the steps in
-[main](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/ALCF/Aurora/torch/install-pt2p8.sh#L576-L685)
+[main](https://github.com/argonne-lcf/frameworks-standalone/blob/25e4096ce0b5ef8b8d9428b9c90da8eb86e46bf7/Aurora/pytorch/pt28.sh#L576-L685)
 one-by-one.
 
 ```bash
 git clone https://github.com/argonne-lcf/frameworks-standalone
 cd frameworks-standalone
-git checkout pt28-install
-source ALCF/Aurora/torch/install-pt2p8.sh
 
-BUILD_DIR="build-$(tstamp)"
+NO_BUILD=1 source Aurora/pytorch/pt28.sh
+
+NOW=$(tstamp)
+BUILD_DIR="build-${NOW}"
 mkdir -p "${BUILD_DIR}"
 
-ENV_DIR=/flare/datascience/foremans/micromamba/envs/2025-07-pt28
+ENV_DIR="/flare/datascience/foremans/micromamba/envs/pt28-${NOW}"
 activate_or_create_micromamba_env "${ENV_DIR}"
 
-load_modules
+setup_modules
 build_pytorch "${BUILD_DIR}"
 install_optional_pytorch_libs
 build_ipex "${BUILD_DIR}"
@@ -47,10 +48,10 @@ so am now retrying as an automated build via:
 ```bash
 git clone https://github.com/argonne-lcf/frameworks-standalone
 cd frameworks-standalone
-git checkout pt28-install
-BUILD_DIR="build-$(tstamp)"
-ENV_DIR="/flare/datascience/foremans/micromamba/envs/2025-07-pt28-test-$(tstamp)"
-bash ALCF/Aurora/torch/install-pt2p8.sh "${ENV_DIR}" "${BUILD_DIR}"
+NOW=$(tstamp)
+BUILD_DIR="build-${NOW}"
+ENV_DIR="/flare/datascience/foremans/micromamba/envs/2025-07-pt28-test-${NOW}"
+bash Aurora/pytorch/pt28.sh "${ENV_DIR}" "${BUILD_DIR}"
 ```
 
  🤷‍♂️ and will see how that goes
@@ -82,21 +83,43 @@ bash ALCF/Aurora/torch/install-pt2p8.sh "${ENV_DIR}" "${BUILD_DIR}"
 For both of the new PyTorch 2.7, 2.8 builds, we're using the following set of modules:
 
 ```bash
-module restore
-module unload oneapi mpich
-module use /soft/compilers/oneapi/2025.1.3/modulefiles
-module use /soft/compilers/oneapi/nope/modulefiles
-module add mpich/nope/develop-git.6037a7a
-module load cmake
-unset CMAKE_ROOT
-export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e
-module add oneapi/public/2025.1.3
-export "ZE_FLAT_DEVICE_HIERARCHY=FLAT"
+setup_modules() {
+    module restore
+    module unload oneapi mpich
+    module use /soft/compilers/oneapi/2025.1.3/modulefiles
+    module use /soft/compilers/oneapi/nope/modulefiles
+    module add mpich/nope/develop-git.6037a7a
+    module load cmake
+    unset CMAKE_ROOT
+    export A21_SDK_PTIROOT_OVERRIDE=/home/cchannui/debug5/pti-gpu-test/tools/pti-gpu/d5c2e2e
+    module add oneapi/public/2025.1.3
+    export "ZE_FLAT_DEVICE_HIERARCHY=FLAT"
+}
+setup_modules
 ```
+
+## ✨ PyTorch Nightly
+
+- Add [Aurora/pytorch/pt-nightly.sh](Aurora/pytorch/pt-nightly.sh) for:
+  - Creating (or activating, if existing) a `conda` environment
+  - Loading appropriate modules
+    - **Building** and installing (from source, using `uv`) `.whl`s for:
+      - `pytorch/`
+        - `pytorch`
+        - `torchvision`
+        - `torchaudio`
+        - `torchdata`
+        - `ao`
+        - `torchtune`
+      - `intel/`
+        - `intel-extension-for-pytorch`
+        - `torch-ccl`
+      - `mpi4py`/`mpi4py`
+      - ~`h5py`/`h5py`~
 
 ## 🏗️ PyTorch 2.8
 
-- Add [ALCF/Aurora/torch/install-pt2p8.sh](ALCF/Aurora/torch/install-pt2p8.sh) for:
+- Add [Aurora/pytorch/pt28.sh](Aurora/pytorch/pt28.sh) for:
   - Creating (or activating, if existing) a `conda` environment[^mm]
   - Loading appropriate modules
   - **Building** and installing (from source, using `uv`) `.whl`s for:
