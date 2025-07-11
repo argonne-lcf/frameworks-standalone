@@ -287,9 +287,9 @@ build_pytorch() {
     cd "${build_dir}/pytorch" || return 1
 
     log_message INFO "Installing PyTorch build dependencies..."
-    uv pip install --link-mode=copy cmake ninja
-    uv pip install --link-mode=copy -r requirements.txt
-    uv pip install --link-mode=copy mkl-static mkl-include
+    uv pip install cmake ninja
+    uv pip install -r requirements.txt
+    uv pip install mkl-static mkl-include
 
     log_message INFO "Making triton..."
     export USE_XPU=1 # for Intel GPU support
@@ -329,7 +329,7 @@ build_pytorch() {
     log_message INFO "Building PyTorch (this may take ~30 minutes)..."
     python3 setup.py bdist_wheel | tee "torch-build-whl-$(tstamp).log"
     log_message INFO "Installing PyTorch wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -337,9 +337,9 @@ build_pytorch() {
 # - Usage: install_optional_pytorch_libs
 install_optional_pytorch_libs() {
     log_message INFO "Installing torchvision and torchaudio with no dependencies for XPU..."
-    uv pip install --link-mode=copy torchvision torchaudio --no-deps --index-url https://download.pytorch.org/whl/xpu
+    uv pip install torchvision torchaudio --no-deps --index-url https://download.pytorch.org/whl/xpu
     log_message INFO "Installing torchdata with no dependencies..."
-    uv pip install --link-mode=copy torchdata --no-deps
+    uv pip install torchdata --no-deps
 }
 
 # Function to build Intel Extension for PyTorch
@@ -370,13 +370,13 @@ build_ipex() {
     git submodule update --init --recursive
 
     log_message INFO "Installing Intel Extension for PyTorch dependencies..."
-    uv pip install --link-mode=copy -r requirements.txt
-    uv pip install --link-mode=copy --upgrade pip setuptools wheel build black flake8
+    uv pip install -r requirements.txt
+    uv pip install --upgrade pip setuptools wheel build black flake8
 
     log_message INFO "Building Intel Extension for PyTorch (IPEX)..."
     MAX_JOBS=48 CC=$(which gcc) CXX=$(which g++) INTELONEAPIROOT="${ONEAPI_ROOT}" python3 setup.py bdist_wheel | tee "ipex-build-whl-$(tstamp).log"
     log_message INFO "Installing Intel Extension for PyTorch wheel..."
-    uv pip install --link-mode=copy "dist/*.whl"
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -404,13 +404,13 @@ build_torch_ccl() {
     cd "${build_dir}/torch-ccl" || return 1
 
     log_message INFO "Installing torch-ccl dependencies..."
-    uv pip install --link-mode=copy -r requirements.txt
+    uv pip install -r requirements.txt
 
     log_message INFO "Building torch-ccl..."
     ONECCL_BINDINGS_FOR_PYTORCH_BACKEND=xpu INTELONEAPIROOT="${ONEAPI_ROOT}" USE_SYSTEM_ONECCL=ON COMPUTE_BACKEND=dpcpp python3 setup.py bdist_wheel | tee "torch-ccl-build-whl-$(tstamp).log"
 
     log_message INFO "Installing torch-ccl wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -437,7 +437,7 @@ build_mpi4py() {
     log_message INFO "Building mpi4py..."
     CC=mpicc CXX=mpicxx python3 setup.py bdist_wheel | tee "mpi4py-build-whl-$(tstamp).log"
     log_message INFO "Installing mpi4py wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install dist/*.whl
     log_message INFO "Showing mpi4py configuration (for verification):"
     python3 -c 'import mpi4py; print(mpi4py.get_config())'
     log_message INFO "mpi4py installed successfully."
@@ -471,7 +471,7 @@ build_h5py() {
     CC=mpicc CXX=mpicxx HDF5_MPI="ON" HDF5_DIR="${HDF5_ROOT}" python3 setup.py bdist_wheel | tee "h5py-build-whl-$(tstamp).log"
 
     log_message INFO "Installing h5py wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install dist/*.whl
 
     log_message INFO "Showing h5cc configuration (for verification):"
     h5cc -showconfig
@@ -502,7 +502,7 @@ build_torch_ao() {
     cd "${build_dir}/ao" || return 1
     USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 setup.py bdist_wheel | tee "torchao-build-whl-$(tstamp).log"
     log_message INFO "Installing torch/ao wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -530,7 +530,7 @@ build_torchtune() {
     cd "${build_dir}/torchtune" || return 1
     USE_CUDA=0 USE_XPU=1 USE_XCCL=1 python3 -m build --installer=uv | tee "torchtune-build-$(tstamp).log"
     log_message INFO "Installing TorchTune wheel..."
-    uv pip install --link-mode=copy dist/*.whl
+    uv pip install dist/*.whl
     cd - || return 1
 }
 
@@ -575,7 +575,7 @@ setup_environment() {
             return 1
         }
     fi
-    export UV_LINK_MODE=copy
+    export UV_CACHE_DIR="${UV_CACHE_DIR:-${conda_env_dir}/.cache/uv}"
     # Ensure micromamba is installed
     if ! command -v micromamba &>/dev/null; then
         log_message INFO "micromamba not found. Installing micromamba..."

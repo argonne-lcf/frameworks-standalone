@@ -289,9 +289,9 @@ build_pytorch() {
     git checkout release/2.8
 
     log_message INFO "Installing PyTorch build dependencies..."
-    uv pip install --link-mode=copy cmake ninja
-    uv pip install --link-mode=copy -r requirements.txt
-    uv pip install --link-mode=copy mkl-static mkl-include
+    uv pip install cmake ninja
+    uv pip install -r requirements.txt
+    uv pip install mkl-static mkl-include
 
     log_message INFO "Making triton..."
     export USE_XPU=1 # for Intel GPU support
@@ -381,7 +381,7 @@ build_ipex() {
     log_message INFO "Building Intel Extension for PyTorch (IPEX)..."
     MAX_JOBS=48 CC=$(which gcc) CXX=$(which g++) INTELONEAPIROOT="${ONEAPI_ROOT}" python3 setup.py bdist_wheel | tee "ipex-build-whl-$(tstamp).log"
     log_message INFO "Installing Intel Extension for PyTorch wheel..."
-    uv pip install --link-mode=copy "dist/*.whl"
+    uv pip install --link-mode=copy dist/*.whl
     cd - || return 1
 }
 
@@ -583,7 +583,7 @@ setup_environment() {
             return 1
         }
     fi
-    export UV_LINK_MODE=copy
+    export UV_CACHE_DIR="${UV_CACHE_DIR:-${conda_env_dir}/.cache/uv}"
     # Ensure micromamba is installed
     if ! command -v micromamba &>/dev/null; then
         log_message INFO "micromamba not found. Installing micromamba..."
@@ -596,6 +596,7 @@ setup_environment() {
     # ---- Setup Environment
     # Took < 10 min
     log_message INFO "Creating (or activating) conda environment at: ${conda_env_dir}"
+    log_message INFO "Using Python version: ${DEFAULT_PYTHON_VERSION}"
     activate_or_create_micromamba_env "${conda_env_dir}" "${DEFAULT_PYTHON_VERSION}" || {
         log_message INFO "Failed to create or activate conda environment at ${conda_env_dir}."
         return 1
