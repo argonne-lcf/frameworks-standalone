@@ -1,5 +1,47 @@
 # Building PyTorch 2.8 from Source on Aurora
 
+## 🛞 Wheels
+
+### PyTorch 2.9
+
+- `conda` environment:
+
+    ```bash
+    /flare/datascience_collab/foremans/micromamba/envs/pt29-2025-07
+    ```
+
+- Wheels stored in:
+
+    ```bash
+    /flare/datascience_collab/software/python/pt29-2025-07/
+    ├── intel_extension_for_pytorch-2.9.10+git43164b1-cp311-cp311-linux_x86_64.whl
+    ├── mpi4py-4.1.1.dev0-cp311-cp311-linux_x86_64.whl
+    ├── oneccl_bind_pt-2.8.0+xpu-cp311-cp311-linux_x86_64.whl
+    ├── torch-2.9.0a0+git9a52782-cp311-cp311-linux_x86_64.whl
+    ├── torchao-0.13.0+git0da89e47-py3-none-any.whl
+    └── torchtune-0.0.0-py3-none-any.whl
+    ```
+
+### PyTorch 2.8
+
+- `conda` environment:
+
+    ```bash
+    /flare/datascience_collab/foremans/micromamba/envs/pt28-2025-07
+    ```
+
+- Wheels stored in:
+
+    ```bash
+    /flare/datascience_collab/software/python/pt28-2025-07
+    ├── intel_extension_for_pytorch-2.8.10+git973860d-cp311-cp311-linux_x86_64.whl
+    ├── mpi4py-4.1.1.dev0-cp311-cp311-linux_x86_64.whl
+    ├── oneccl_bind_pt-2.8.0+xpu-cp311-cp311-linux_x86_64.whl
+    ├── torch-2.8.0a0+gitd1d97ca-cp311-cp311-linux_x86_64.whl
+    ├── torchao-0.12.0+gitd9f8a681-py3-none-any.whl
+    └── torchtune-0.0.0-py3-none-any.whl
+    ```
+
 ## 📝 Summary
 
 - [x] Tested and confirmed that each of the _individual_ build steps from here in
