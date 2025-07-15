@@ -39,6 +39,7 @@ export RAY_TMPDIR="/tmp"
 export TMPDIR="/tmp"
 
 export ZE_FLAT_DEVICE_HIERARCHY=FLAT
+export FI_MAR_CACHE_MONITOR=userfaultfd
 ray stop -f
 export VLLM_HOST_IP=$(getent hosts $(hostname).hsn.cm.aurora.alcf.anl.gov | awk '{ print $1 }' | tr ' ' '\n' | sort | head -n 1)
 export tiles=12
@@ -50,7 +51,7 @@ export no_proxy="localhost,127.0.0.1" #Set no_proxy for the client to interact w
 
 export VLLM_HOST_IP=$(getent hosts $(hostname).hsn.cm.aurora.alcf.anl.gov | awk '{ print $1 }' | tr ' ' '\n' | sort | head -n 1)
 vllm serve meta-llama/Llama-3.3-70B-Instruct --distributed-executor-backend mp --port 8000 \
-    --tensor-parallel-size 8 --device xpu --dtype float16 --trust-remote-code --max-model-len 32768
+    --tensor-parallel-size 8 --device xpu --dtype float16 --trust-remote-code --max-model-len 32768 --enforce-eager
 
 #python -m vllm.entrypoints.openai.api_server --model=meta-llama/Llama-3.3-70B-Instruct --port 8000 \
 #    --tensor-parallel-size 8 --device xpu --dtype float16 --trust-remote-code --max-model-len 32768

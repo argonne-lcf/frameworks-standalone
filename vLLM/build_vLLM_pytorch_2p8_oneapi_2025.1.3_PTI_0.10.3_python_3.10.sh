@@ -109,6 +109,7 @@ pip install --no-cache-dir numpy==2.0.2
 pip install --no-deps --no-cache-dir --force-reinstall $LOCAL_WHEEL_LOC/torch-*.whl
 pip install --no-deps --no-cache-dir --force-reinstall $LOCAL_WHEEL_LOC/intel_extension_for_pytorch-*.whl
 pip install --no-deps --no-cache-dir --force-reinstall $LOCAL_WHEEL_LOC/torchvision-*.whl
+pip install --no-deps --no-cache-dir --force-reinstall pytorch-triton-xpu==3.3.1+gitb0e26b73 --index-url https://download.pytorch.org/whl/nightly/
 
 pip install -v --no-cache-dir -r requirements/xpu.txt
 
