@@ -22,12 +22,11 @@ setup_uv_venv *.whl
 # TODO: build dpctl, dpnp?
 uv pip install dpctl dpnp
 
-# `torch` links the `pti-gpu` built by this pipeline, and dpctl bundles a
-# SYCL/UR runtime in the venv prefix; both must take precedence over the
-# system's copies. Login-profile `ONEAPI_*`/`ZE_*` vars (absent in the
-# service-spawned CI runner) also hide XPUs from Level Zero discovery.
-export LD_LIBRARY_PATH="\$PWD/.venv/lib:\$FRAMEWORKS_RUN_DIR/pti-gpu/lib:\${LD_LIBRARY_PATH:-}"
-unset ONEAPI_DEVICE_SELECTOR ZE_ENABLE_API_TRACING ZE_FLAT_DEVICE_HIERARCHY ZE_ENABLE_PCI_ID_DEVICE_ORDER
+# Load pti-gpu
+# The PyPI `dpctl`/`dpnp` wheels bundle a newer oneAPI/UR runtime than the
+# loaded module env provides, and `LD_LIBRARY_PATH` outranks their `RUNPATH`,
+# so the venv's bundled (self-consistent) runtime must come first.
+export LD_LIBRARY_PATH="\$PWD/.venv/lib:\$FRAMEWORKS_RUN_DIR/pti-gpu/lib:\$LD_LIBRARY_PATH"
 
 # Run smoke suite; write results to the workspace (the tmpdir is deleted on
 # cleanup) so they can be converted to JUnit XML for GitLab CI ingestion
