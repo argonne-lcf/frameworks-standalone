@@ -799,10 +799,17 @@ export USE_CUDA=0
 export USE_ROCM=0
 export USE_MKLDNN=1
 export USE_MKL=1
-# Link the MKL installed into the build venv (pip `mkl-static`/ `mkl-include`)
-# instead of the system MKL
+# Link the MKL installed into the build venv (pip `mkl-static`/
+# `mkl-include`) instead of the system MKL, statically linking it into
+# `libtorch` so the wheel carries its own copy (the system MKL's sonames
+# change across Aurora software updates). `MKL_ROOT` wins the
+# `find_library` search inside `find_package(MKL)` (CMP0074) over the
+# oneAPI paths exported by the module environment.
+#
+# Do NOT redirect `MKLROOT` to the venv: torch-xpu-ops' FindONEMKL treats it
+# as authoritative and needs the oneMKL SYCL libraries (`libmkl_sycl_*.so`)
+# that only the system oneAPI provides.
 export MKL_ROOT="$PWD/.venv"
-export MKLROOT="$PWD/.venv"
 export USE_STATIC_MKL=1
 export USE_CUDNN=0
 export USE_FBGEMM=1
