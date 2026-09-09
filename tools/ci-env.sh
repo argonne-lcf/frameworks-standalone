@@ -33,7 +33,6 @@ export FRAMEWORKS_VLLM_VERSION="${FRAMEWORKS_VLLM_VERSION:-main}"
 export FRAMEWORKS_VLLM_XPU_KERNELS_VERSION="${FRAMEWORKS_VLLM_XPU_KERNELS_VERSION:-main}"
 export FRAMEWORKS_SDK_TESTS_VERSION="${FRAMEWORKS_SDK_TESTS_VERSION:-main}"
 
-export ANL_AURORA_SCHEDULER_PARAMETERS='-A datascience -l select=1,walltime=06:00:00,filesystems=home:flare -q prod'
 export HTTP_PROXY='http://proxy.alcf.anl.gov:3128'
 export HTTPS_PROXY='http://proxy.alcf.anl.gov:3128'
 export http_proxy="$HTTP_PROXY"
