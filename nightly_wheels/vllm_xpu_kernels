@@ -22,6 +22,7 @@ setup_uv_venv -r requirements.txt *.whl
 # 2) Configure vLLM XPU kernels
 export VLLM_XPU_AOT_DEVICES="pvc"
 export VLLM_XPU_XE2_AOT_DEVICES="pvc"
+export VLLM_XPU_ENABLE_XE3P=0
 
 # 3) Build & Archive
 build_bdist_wheel
